@@ -2,10 +2,13 @@ import { AISystem } from '../core/AISystem';
 import { Memory } from '../types';
 import * as readline from 'readline';
 import { Logger, Colors } from '../utils/logger';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class ChatCommand {
     private logger: Logger;
     private rl: readline.Interface;
+    private version: string;
     
     constructor(private system: AISystem) {
         this.logger = new Logger('ChatCommand');
@@ -15,6 +18,37 @@ export class ChatCommand {
             input: process.stdin,
             output: process.stdout,
         });
+        
+        // 初始化版本号
+        this.version = this.getVersion();
+    }
+
+    /**
+     * 获取当前应用版本号
+     */
+    private getVersion(): string {
+        try {
+            // 可能的包路径
+            const possiblePaths = [
+                path.resolve(__dirname, '../../../package.json'), // 开发环境
+                path.resolve(__dirname, '../../package.json'),    // npm包安装环境
+                path.resolve(process.cwd(), 'package.json')       // 当前工作目录
+            ];
+            
+            // 尝试读取package.json
+            for (const pkgPath of possiblePaths) {
+                if (fs.existsSync(pkgPath)) {
+                    const packageData = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                    if (packageData.name === 'agentkai') {
+                        return packageData.version;
+                    }
+                }
+            }
+        } catch (error) {
+            this.logger.debug('无法读取版本号:', error);
+        }
+        
+        return '未知'; // 默认返回未知版本
     }
 
     async execute(): Promise<void> {
@@ -44,7 +78,7 @@ export class ChatCommand {
         // 清屏效果（使用ANSI转义序列）
         process.stdout.write('\x1Bc');
         
-        console.log(`\n${Colors.bright}✨ 欢迎使用 ${Colors.success}AgentKai${Colors.reset} ${Colors.bright}智能助手 ✨${Colors.reset}\n`);
+        console.log(`\n${Colors.bright}✨ 欢迎使用 ${Colors.success}AgentKai${Colors.reset} ${Colors.bright}智能助手 ✨${Colors.reset} ${Colors.dim}v${this.version}${Colors.reset}\n`);
         console.log(`${Colors.dim}── 特殊命令 ──${Colors.reset}`);
         console.log(`  ${Colors.bright}!save${Colors.reset} <内容>   保存重要信息到长期记忆`);
         console.log(`  ${Colors.bright}!search${Colors.reset} <关键词> 搜索长期记忆`);
