@@ -1,7 +1,7 @@
 import { Config, Goal, Memory } from '../../types';
 import { Logger } from '../../utils/logger';
 import { ConversationMessage } from '../conversation/ConversationManager';
-import { ToolManager } from '../../tools/ToolManager';
+import { ToolService } from '../../services/tools';
 
 /**
  * 提示构建器
@@ -10,7 +10,7 @@ import { ToolManager } from '../../tools/ToolManager';
 export class PromptBuilder {
   private config: Config;
   private logger: Logger;
-  private toolManager: ToolManager;
+  private toolService: ToolService;
 
   /**
    * 构造函数
@@ -19,7 +19,7 @@ export class PromptBuilder {
   constructor(config: Config) {
     this.config = config;
     this.logger = new Logger('PromptBuilder');
-    this.toolManager = new ToolManager();
+    this.toolService = ToolService.getInstance();
   }
 
   /**
@@ -77,6 +77,49 @@ export class PromptBuilder {
   }
 
   /**
+   * 生成工具使用指南
+   * @returns 工具使用指南文本
+   */
+  private generateToolGuide(): string {
+    return `如果需要使用工具，请使用以下格式：
+[[工具名(参数)]]
+例如：
+  [[search_memories(query: "记忆内容")]]
+  [[add_memory(content: "记忆内容", importance: 8)]]
+  简单参数也可以直接传递：
+  [[search_memories("记忆内容")]]
+
+当你调用工具后：
+1. 系统会自动执行工具并返回结果
+2. 你将看到结果并可以根据结果决定:
+   - 调用其他工具继续处理
+   - 使用不同参数重新调用当前工具
+   - 直接给用户回复最终结果
+
+如果不需要使用工具，直接回答用户问题即可。`;
+  }
+
+  /**
+   * 格式化工具定义
+   * @param tool 工具对象
+   * @returns 格式化后的工具定义文本
+   */
+  private formatToolDefinition(tool: any): string {
+    const parameters = tool.parameters
+      ? Object.keys(tool.parameters).map(paramName => {
+          const param = tool.parameters[paramName];
+          const required = param.required ? '(必填)' : '(可选)';
+          const defaultValue = param.default !== undefined ? `，默认值: ${param.default}` : '';
+          return `- ${paramName}: ${param.description || ''} ${required}${defaultValue}`;
+        }).join('\n')
+      : '无参数';
+            
+    return `工具：${tool.name}
+描述：${tool.description}
+参数：${parameters}`;
+  }
+
+  /**
    * 构建上下文消息
    * @param conversationHistory 会话历史
    * @param relevantMemories 相关记忆
@@ -119,10 +162,10 @@ export class PromptBuilder {
       ),
 
       // 5. 工具使用指导
-      this.toolManager.getToolGuide(),
+      this.generateToolGuide(),
 
       // 6. 服务工具定义
-      '可用服务工具：',
+      '可用工具：',
       ...(serviceTools.length > 0
         ? serviceTools.map((tool) => {
             const paramDesc = tool.parameters
@@ -130,11 +173,10 @@ export class PromptBuilder {
               : '';
             return `- ${tool.name}: ${tool.description}${paramDesc}`;
           })
-        : ['无可用服务工具']),
-
-      // 7. 传统工具定义
-      '可用传统工具定义：',
-      ...this.toolManager.getFormattedToolDefinitions(),
+        : []),
+      
+      // 7. 全局工具定义
+      ...this.toolService.getAllTools().map(tool => this.formatToolDefinition(tool)),
 
       // 8. 最后的指导
       '请根据以上信息回答用户的问题。如需保存重要信息到长期记忆，请使用add_memory工具。',
