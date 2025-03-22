@@ -117,6 +117,13 @@ export class Logger {
   }
 
   /**
+   * 获取当前全局日志配置
+   */
+  static getGlobalOptions(): LoggerOptions {
+    return { ...Logger.globalOptions };
+  }
+
+  /**
    * 获取当前全局日志级别
    */
   static getGlobalLogLevel(): LogLevel {

@@ -1,8 +1,11 @@
 import { Tool } from '../types';
 import { MemorySystem } from '../memory/MemorySystem';
 import { GoalManager } from '../goals/GoalManager';
+import { Logger } from '../utils/logger';
 
 export function createMemoryTools(memory: MemorySystem): Tool[] {
+    const logger = new Logger('MemoryTools');
+    
     return [
         {
             id: 'add_memory',
@@ -38,9 +41,9 @@ export function createMemoryTools(memory: MemorySystem): Tool[] {
                         throw new Error('记忆内容不能为空');
                     }
                     
-                    console.log(`[工具] 添加记忆: "${content.substring(0, 50)}..."`);
-                    console.log(`[工具] 记忆类型: ${type}`);
-                    console.log(`[工具] 重要性: ${importance}`);
+                    // 使用logger记录添加记忆的信息
+                    logger.info(`添加记忆: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`);
+                    logger.debug(`记忆类型: ${type}, 重要性: ${importance}`);
                     
                     await memory.addMemory(content, {
                         type,
@@ -59,7 +62,7 @@ export function createMemoryTools(memory: MemorySystem): Tool[] {
                         }
                     };
                 } catch (error) {
-                    console.error('[工具错误] 添加记忆失败:', error);
+                    logger.error('添加记忆失败:', error);
                     return {
                         success: false,
                         error: `添加记忆失败: ${error}`
@@ -94,16 +97,38 @@ export function createMemoryTools(memory: MemorySystem): Tool[] {
                         throw new Error('搜索关键词不能为空');
                     }
                     
-                    console.log(`[工具] 搜索记忆: "${query}"`);
+                    // 使用logger记录搜索操作信息
+                    logger.info(`搜索记忆: "${query}"`);
                     const results = await memory.searchMemories(query, parseInt(limit) || 5);
-                    console.log(`[工具] 找到记忆数量: ${results.length}`);
+                    logger.info(`找到记忆数量: ${results.length}`);
+                    
+                    // 格式化结果以包含相似度信息
+                    const formattedResults = results.map(memory => {
+                        const result = {
+                            id: memory.id,
+                            content: memory.content,
+                            type: memory.type,
+                            timestamp: memory.timestamp,
+                            formattedDate: new Date(memory.timestamp).toLocaleString(),
+                        };
+                        
+                        // 添加相似度信息
+                        if (memory.metadata && memory.metadata.similarity !== undefined) {
+                            Object.assign(result, {
+                                similarity: memory.metadata.similarity,
+                                similarityFormatted: memory.metadata.similarity.toFixed(4)
+                            });
+                        }
+                        
+                        return result;
+                    });
                     
                     return {
                         success: true,
-                        data: results
+                        data: formattedResults
                     };
                 } catch (error) {
-                    console.error('[工具错误] 搜索记忆失败:', error);
+                    logger.error('搜索记忆失败:', error);
                     return {
                         success: false,
                         error: `搜索记忆失败: ${error}`

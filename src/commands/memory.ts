@@ -56,23 +56,34 @@ export class MemoryCommand {
         this.logger.section('搜索记忆');
         this.logger.info(`正在搜索: "${query}"`);
         
-        const memories = await this.system.searchMemories(query);
-        this.logger.info(`找到 ${memories.length} 条相关记忆`);
-        
-        if (memories.length === 0) {
-            this.logger.info('没有找到相关记忆');
-            return;
-        }
-
-        this.logger.divider();
-        memories.forEach((memory: Memory, index: number) => {
-            const date = new Date(memory.metadata.timestamp || 0).toLocaleString();
-            this.logger.info(`记忆 ${index + 1}/${memories.length}:`);
-            this.logger.info(`内容: ${memory.content}`);
-            this.logger.info(`日期: ${date}`);
-            this.logger.info(`相似度: ${(memory as any).similarity?.toFixed(2) || '未知'}`);
+        try {
+            const memories = await this.system.searchMemories(query);
+            
+            if (memories.length === 0) {
+                this.logger.info('没有找到相关记忆');
+                return;
+            }
+            
+            this.logger.info(`找到 ${memories.length} 条相关记忆`);
+            
+            memories.forEach((memory, index) => {
+                this.logger.divider();
+                this.logger.info(`记忆 ${index + 1}/${memories.length}:`);
+                this.logger.info(`ID: ${memory.id}`);
+                this.logger.info(`内容: ${memory.content}`);
+                this.logger.info(`日期: ${new Date(memory.timestamp).toLocaleString()}`);
+                this.logger.info(`类型: ${memory.type}`);
+                
+                // 显示相似度信息，如果存在
+                if (memory.metadata && memory.metadata.similarity !== undefined) {
+                    this.logger.info(`相似度: ${memory.metadata.similarity.toFixed(4)}`);
+                }
+            });
             this.logger.divider();
-        });
+        } catch (error) {
+            this.logger.error('搜索记忆失败:', error);
+            throw error;
+        }
     }
 
     private async removeMemory(id: string): Promise<void> {

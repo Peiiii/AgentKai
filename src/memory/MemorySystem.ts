@@ -203,7 +203,11 @@ export class MemorySystem {
                 // 相似度越高越好，所以用大于等于
                 if (similarity >= this.config.similarityThreshold) {
                     if (memory) {
-                        results.push(memory);
+                        // 将相似度信息添加到记忆元数据中
+                        const memoryWithSimilarity = {...memory};
+                        memoryWithSimilarity.metadata = {...memory.metadata, similarity};
+                        
+                        results.push(memoryWithSimilarity);
                         this.logger.info(`找到相关记忆:
     - 内容: ${memory.content.substring(0, 100)}${memory.content.length > 100 ? '...' : ''}
     - 相似度: ${similarity.toFixed(4)}

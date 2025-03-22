@@ -331,19 +331,33 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
         .command('chat')
         .description('与AI代理进行对话')
         .option('-d, --debug', '使用DEBUG日志级别运行聊天', false)
+        .option('--log-level <level>', '设置日志级别 (debug|info|warn|error)', 'warn')
         .action(async (options) => {
             try {
-                // 如果指定了debug选项，临时设置日志级别为DEBUG
+                // 设置日志级别
+                const previousLevel = Logger.getGlobalLogLevel();
+                
                 if (options.debug) {
-                    const previousLevel = Logger.getGlobalLogLevel();
+                    // debug选项优先级高于log-level选项
                     Logger.setGlobalLogLevel(LogLevel.DEBUG);
-                    logger.info('临时设置日志级别为DEBUG');
+                    logger.info('设置日志级别为DEBUG');
+                } else {
+                    // 根据--log-level选项设置日志级别
+                    const logLevelMap: {[key: string]: LogLevel} = {
+                        'debug': LogLevel.DEBUG,
+                        'info': LogLevel.INFO,
+                        'warn': LogLevel.WARN,
+                        'error': LogLevel.ERROR
+                    };
                     
-                    // 创建退出钩子，恢复之前的日志级别
-                    process.on('exit', () => {
-                        Logger.setGlobalLogLevel(previousLevel);
-                    });
+                    const logLevel = logLevelMap[options.logLevel.toLowerCase()] || LogLevel.WARN;
+                    Logger.setGlobalLogLevel(logLevel);
                 }
+                
+                // 创建退出钩子，恢复之前的日志级别
+                process.on('exit', () => {
+                    Logger.setGlobalLogLevel(previousLevel);
+                });
                 
                 const system = await getAISystem();
                 const command = new ChatCommand(system);

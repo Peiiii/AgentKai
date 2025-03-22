@@ -92,7 +92,16 @@ export class DefaultToolCallFormat implements ToolCallFormat {
             return item;
         } else if (item && typeof item === 'object') {
             if (item.content) {
-                return `${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}`;
+                let result = `${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}`;
+                // 添加相似度信息（两种可能的格式）
+                if (item.similarityFormatted) {
+                    result += ` (相似度: ${item.similarityFormatted})`;
+                } else if (item.similarity !== undefined) {
+                    result += ` (相似度: ${typeof item.similarity === 'number' ? item.similarity.toFixed(4) : item.similarity})`;
+                } else if (item.metadata && item.metadata.similarity !== undefined) {
+                    result += ` (相似度: ${item.metadata.similarity.toFixed(4)})`;
+                }
+                return result;
             } else if (item.description) {
                 return `[优先级:${item.priority || 'N/A'}] ${item.description} (进度: ${item.progress !== undefined ? Math.round(item.progress * 100) : 0}%)`;
             }
