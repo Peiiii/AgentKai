@@ -143,25 +143,16 @@ export enum GoalStatus {
     PENDING = 'pending'
 }
 
-// 存储提供者接口
+// 存储提供者接口 - 重构为通用存储接口，不关心具体存储内容
 export interface StorageProvider {
-    save(key: string, data: any): Promise<void>;
-    load(key: string): Promise<any>;
-    delete(key: string): Promise<void>;
-    list(): Promise<string[]>;
-    clear(): Promise<void>;
-    saveMemories(memories: Memory[]): Promise<void>;
-    loadMemories(): Promise<Memory[]>;
-}
-
-// 目标存储提供者接口
-export interface GoalStorageProvider extends StorageProvider {
-    saveGoal(goal: Goal): Promise<void>;
-    loadGoal(id: UUID): Promise<Goal>;
-    deleteGoal(id: UUID): Promise<void>;
-    listGoals(): Promise<Goal[]>;
-    saveGoals(goals: Goal[]): Promise<void>;
-    loadGoals(): Promise<Goal[]>;
+    // 基础CRUD方法
+    save(collection: string, id: string, data: any): Promise<void>;
+    get(collection: string, id: string): Promise<any>;
+    delete(collection: string, id: string): Promise<void>;
+    list(collection: string): Promise<any[]>;
+    query(collection: string, filter?: Record<string, any>): Promise<any[]>;
+    clear(collection: string): Promise<void>;
+    clearAll(): Promise<void>;
 }
 
 // AI模型接口

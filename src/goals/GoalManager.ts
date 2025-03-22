@@ -1,13 +1,16 @@
-import { Goal, GoalStatus, GoalStorageProvider } from '../types';
+import { Goal, GoalStatus, StorageProvider } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '../utils/logger';
 
+// 定义目标相关的常量
+const COLLECTION_NAME = 'goals'; // 目标集合名称
+
 export class GoalManager {
     private goals: Goal[];
-    private storage: GoalStorageProvider;
+    private storage: StorageProvider;
     private logger: Logger;
 
-    constructor(storage: GoalStorageProvider) {
+    constructor(storage: StorageProvider) {
         this.storage = storage;
         this.goals = [];
         this.logger = new Logger('GoalManager');
@@ -15,7 +18,8 @@ export class GoalManager {
 
     async initialize(): Promise<void> {
         try {
-            this.goals = await this.storage.loadGoals();
+            // 从存储中加载所有目标
+            this.goals = await this.storage.list(COLLECTION_NAME) as Goal[];
             if (this.goals.length > 0) {
                 this.logger.info(`已加载 ${this.goals.length} 个目标`);
             }
@@ -39,28 +43,46 @@ export class GoalManager {
         };
 
         this.goals.push(newGoal);
-        await this.storage.saveGoal(newGoal);
+        await this.storage.save(COLLECTION_NAME, newGoal.id, newGoal);
         this.logger.info('目标已保存', { totalGoals: this.goals.length });
         return newGoal;
     }
 
     async getGoal(id: string): Promise<Goal | null> {
-        const goal = this.goals.find(g => g.id === id);
-        if (!goal) {
-            this.logger.warn(`目标 ${id} 不存在`);
-            return null;
+        // 先尝试从内存中获取
+        const goalInMemory = this.goals.find(g => g.id === id);
+        if (goalInMemory) {
+            this.logger.debug('从内存中获取目标:', { id, description: goalInMemory.description });
+            return goalInMemory;
         }
-        this.logger.debug('获取目标:', { id, description: goal.description });
-        return goal;
+
+        // 如果内存中没有，尝试从存储中获取
+        try {
+            const goal = await this.storage.get(COLLECTION_NAME, id) as Goal | null;
+            if (goal) {
+                this.logger.debug('从存储中获取目标:', { id, description: goal.description });
+                // 添加到内存中
+                this.goals.push(goal);
+                return goal;
+            }
+        } catch (error) {
+            this.logger.warn(`获取目标 ${id} 失败:`, error);
+        }
+
+        this.logger.warn(`目标 ${id} 不存在`);
+        return null;
     }
 
     async getActiveGoals(): Promise<Goal[]> {
-        const activeGoals = this.goals.filter(g => g.status === GoalStatus.ACTIVE);
+        // 使用新接口查询活跃目标
+        const activeGoals = await this.storage.query(COLLECTION_NAME, { status: GoalStatus.ACTIVE }) as Goal[];
         this.logger.debug('获取活跃目标数量:', { count: activeGoals.length });
         return activeGoals;
     }
 
     async getAllGoals(): Promise<Goal[]> {
+        // 从存储中刷新所有目标
+        this.goals = await this.storage.list(COLLECTION_NAME) as Goal[];
         this.logger.debug('获取所有目标数量:', { count: this.goals.length });
         return [...this.goals];
     }
@@ -79,7 +101,7 @@ export class GoalManager {
             this.logger.info(`目标已完成`, { id: goalId, description: goal.description });
         }
         
-        await this.storage.saveGoal(goal);
+        await this.storage.save(COLLECTION_NAME, goal.id, goal);
     }
 
     async updateGoalProgress(goalId: string, progress: number): Promise<void> {
@@ -95,13 +117,13 @@ export class GoalManager {
             oldProgress, 
             newProgress: goal.progress 
         });
-        await this.storage.saveGoal(goal);
+        await this.storage.save(COLLECTION_NAME, goal.id, goal);
     }
 
     async clearGoals(): Promise<void> {
         this.logger.info('清空所有目标');
         this.goals = [];
-        await this.storage.clear();
+        await this.storage.clear(COLLECTION_NAME);
     }
 
     async activateGoal(goalId: string): Promise<void> {
@@ -111,7 +133,7 @@ export class GoalManager {
         this.logger.info(`激活目标 ${goalId}`, { description: goal.description });
         goal.status = GoalStatus.ACTIVE;
         goal.updatedAt = Date.now();
-        await this.storage.saveGoal(goal);
+        await this.storage.save(COLLECTION_NAME, goal.id, goal);
     }
 
     async deactivateGoal(goalId: string): Promise<void> {
@@ -121,7 +143,7 @@ export class GoalManager {
         this.logger.info(`停用目标 ${goalId}`, { description: goal.description });
         goal.status = GoalStatus.PENDING;
         goal.updatedAt = Date.now();
-        await this.storage.saveGoal(goal);
+        await this.storage.save(COLLECTION_NAME, goal.id, goal);
     }
 
     async deleteGoal(id: string): Promise<boolean> {
@@ -129,7 +151,7 @@ export class GoalManager {
         const index = this.goals.findIndex(g => g.id === id);
         if (index !== -1) {
             this.goals.splice(index, 1);
-            await this.storage.deleteGoal(id);
+            await this.storage.delete(COLLECTION_NAME, id);
             this.logger.info('目标已删除');
             return true;
         }
@@ -165,7 +187,7 @@ export class GoalManager {
             goal.progress = 1;
         }
         
-        await this.storage.saveGoal(goal);
+        await this.storage.save(COLLECTION_NAME, goal.id, goal);
         this.logger.info(`目标 ${id} 已更新`, { 
             description: goal.description,
             oldTimestamp: originalTimestamp,
@@ -200,14 +222,14 @@ export class GoalManager {
         if (!child.dependencies.includes(parentId)) {
             child.dependencies.push(parentId);
             child.updatedAt = Date.now();
-            await this.storage.saveGoal(child);
+            await this.storage.save(COLLECTION_NAME, child.id, child);
         }
         
         // 添加子目标关系
         if (!parent.subGoals.includes(childId)) {
             parent.subGoals.push(childId);
             parent.updatedAt = Date.now();
-            await this.storage.saveGoal(parent);
+            await this.storage.save(COLLECTION_NAME, parent.id, parent);
         }
         
         this.logger.info(`已添加依赖关系`, { 

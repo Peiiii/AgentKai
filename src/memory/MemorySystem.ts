@@ -4,6 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { HierarchicalNSW } from 'hnswlib-node';
 import { Logger } from '../utils/logger';
 
+// 定义记忆相关的常量
+const COLLECTION_NAME = 'memories'; // 记忆集合名称
+
 export class MemorySystem {
     private memories: Memory[];
     private config: MemoryConfig;
@@ -25,7 +28,7 @@ export class MemorySystem {
     async initialize(): Promise<void> {
         try {
             this.logger.info('开始加载记忆...');
-            const savedMemories = await this.storage.loadMemories();
+            const savedMemories = await this.storage.list(COLLECTION_NAME) as Memory[];
             this.memories = savedMemories;
             this.logger.info(`已加载 ${this.memories.length} 条记忆`);
 
@@ -96,7 +99,7 @@ export class MemorySystem {
             this.logger.debug(`添加后记忆总数: ${this.memories.length}`);
             
             // 保存到存储
-            await this.saveMemories();
+            await this.storage.save(COLLECTION_NAME, memory.id, memory);
             this.logger.debug('记忆已保存到存储');
             
             // 更新向量索引
@@ -150,6 +153,17 @@ export class MemorySystem {
             this.memories = [...importantMemories, ...recentMemories];
             this.logger.info('清理后总记忆数量:', this.memories.length);
             
+            // 删除不再保留的记忆
+            const allMemories = await this.storage.list(COLLECTION_NAME) as Memory[];
+            const keepsIds = new Set(this.memories.map(m => m.id));
+            
+            for (const memory of allMemories) {
+                if (!keepsIds.has(memory.id)) {
+                    await this.storage.delete(COLLECTION_NAME, memory.id);
+                    this.logger.debug(`已删除低重要性记忆: ${memory.id}`);
+                }
+            }
+            
             // 重建向量索引
             this.vectorDb = new HierarchicalNSW('cosine', this.config.vectorDimensions);
             this.vectorDb.initIndex(this.config.maxMemories);
@@ -167,7 +181,10 @@ export class MemorySystem {
 
     private async saveMemories() {
         try {
-            await this.storage.saveMemories(this.memories);
+            // 批量保存所有记忆（这里实现略有不同，需要一个个保存）
+            for (const memory of this.memories) {
+                await this.storage.save(COLLECTION_NAME, memory.id, memory);
+            }
         } catch (error) {
             this.logger.error('Failed to save memories:', error);
         }
@@ -225,6 +242,8 @@ export class MemorySystem {
     }
 
     async getAllMemories(): Promise<Memory[]> {
+        // 从存储中刷新数据
+        this.memories = await this.storage.list(COLLECTION_NAME) as Memory[];
         return [...this.memories].sort((a: Memory, b: Memory) => b.timestamp - a.timestamp);
     }
 
@@ -235,7 +254,7 @@ export class MemorySystem {
             throw new Error(`记忆 ${id} 不存在`);
         }
         this.memories.splice(index, 1);
-        await this.saveMemories();
+        await this.storage.delete(COLLECTION_NAME, id);
         this.logger.info('记忆已删除');
     }
 
@@ -244,7 +263,7 @@ export class MemorySystem {
         this.memories = [];
         this.vectorDb = new HierarchicalNSW('cosine', this.config.vectorDimensions);
         this.vectorDb.initIndex(this.config.maxMemories);
-        await this.storage.clear();
+        await this.storage.clear(COLLECTION_NAME);
         this.logger.info('所有记忆已清空');
     }
 } 
