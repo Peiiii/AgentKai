@@ -43,6 +43,17 @@ export class AISystem {
 
         // 注册工具
         this.logger.info('注册工具...');
+
+        // 注册工具服务中的工具
+        const toolService = ToolService.getInstance();
+        
+        // 1. 首先注册BasicToolsPlugin中的工具
+        // 导入BasicToolsPlugin
+        const { BasicToolsPlugin } = await import('../plugins/basic-tools');
+        const basicTools = new BasicToolsPlugin(this);
+        toolService.registerTools(basicTools.getTools());
+        
+        // 2. 继续注册原有的工具
         // 注册记忆相关工具
         const memoryTools = createMemoryTools(this.memory);
         this.tools.registerTools(memoryTools);
@@ -52,6 +63,7 @@ export class AISystem {
         this.tools.registerTools(goalTools);
 
         this.logger.info(`已注册 ${memoryTools.length + goalTools.length} 个工具`);
+        this.logger.info(`工具服务中已注册 ${toolService.getAllTools().length} 个工具`);
     }
 
     async processInput(input: string): Promise<SystemResponse> {
@@ -214,6 +226,9 @@ export class AISystem {
      * 构建发送给模型的上下文信息
      */
     private buildContextMessages(relevantMemories: Memory[], activeGoals: Goal[]): string[] {
+        const toolService = ToolService.getInstance();
+        const serviceTools = toolService.getAllTools();
+
         // 按照新的设计重构上下文构建
         return [
             // 1. 系统设定 + AI自身角色定义
@@ -242,11 +257,22 @@ export class AISystem {
             // 5. 工具使用指导
             this.tools.getToolGuide(),
 
-            // 6. 工具定义
-            '可用工具定义：',
+            // 6. 服务工具定义（新增）
+            '可用服务工具：',
+            ...(serviceTools.length > 0 
+                ? serviceTools.map(tool => {
+                    const paramDesc = tool.parameters
+                        ? `\n参数: ${JSON.stringify(tool.parameters, null, 2)}`
+                        : '';
+                    return `- ${tool.name}: ${tool.description}${paramDesc}`;
+                })
+                : ['无可用服务工具']),
+
+            // 7. 传统工具定义
+            '可用传统工具定义：',
             ...this.tools.getFormattedToolDefinitions(),
 
-            // 7. 最后的指导
+            // 8. 最后的指导
             '请根据以上信息回答用户的问题。如需保存重要信息到长期记忆，请使用add_memory工具。',
         ];
     }
@@ -259,7 +285,59 @@ export class AISystem {
         modifiedText: string;
         extraTokens?: { prompt: number; completion: number };
     }> {
-        // 检查响应中是否包含工具调用
+        // 首先尝试使用ToolService处理工具调用
+        const toolService = ToolService.getInstance();
+        const toolPattern = /\[\[(\w+)\((.*?)\)\]\]/g;
+        let toolCalled = false;
+        let modifiedText = response;
+        let match;
+        
+        // 检查是否有工具调用格式 [[工具名(参数)]]
+        while ((match = toolPattern.exec(response)) !== null) {
+            toolCalled = true;
+            const toolName = match[1];
+            const paramStr = match[2];
+            let params;
+            
+            try {
+                // 尝试解析参数
+                params = paramStr.includes(':') 
+                    ? JSON.parse(`{${paramStr}}`) 
+                    : { query: paramStr };
+                
+                this.logger.info(`检测到工具调用: ${toolName} 参数: ${JSON.stringify(params)}`);
+                
+                if (toolService.hasTool(toolName)) {
+                    // 执行工具
+                    const result = await toolService.executeTool(toolName, params);
+                    const resultText = JSON.stringify(result, null, 2);
+                    
+                    // 替换工具调用为结果
+                    modifiedText = modifiedText.replace(
+                        match[0],
+                        `工具调用结果:\n${resultText}`
+                    );
+                }
+            } catch (error) {
+                this.logger.error(`工具调用失败: ${toolName}`, error);
+                modifiedText = modifiedText.replace(
+                    match[0],
+                    `工具调用错误: ${error instanceof Error ? error.message : String(error)}`
+                );
+            }
+        }
+        
+        // 如果通过新格式已处理工具调用，则直接返回
+        if (toolCalled) {
+            return {
+                toolCalled,
+                modifiedText,
+                extraTokens: { prompt: 0, completion: 0 }
+            };
+        }
+        
+        // 否则回退到原有的工具调用处理方式
+        // 检查响应中是否包含原格式的工具调用
         const result = await this.tools.processToolCall(response);
 
         // 如果有工具调用
@@ -421,16 +499,28 @@ export class AISystem {
 工具使用指南：
 - 只在需要时才使用工具
 - 添加记忆时，将重要信息保存到长期记忆
-- 使用工具时，严格遵循指定的格式
+- 使用工具时，有两种方式可以调用:
+
+方式一（推荐）：使用[[工具名(参数)]]的格式
+例如：
+  [[search_memories(query: "记忆内容")]]
+  [[add_memory(content: "记忆内容", importance: 8)]]
+  [[web_search(query: "搜索内容")]]
+简单参数也可以直接传递：
+  [[search_memories("记忆内容")]]
+
+方式二：使用传统工具调用格式
 - 工具调用后，你将看到工具执行结果，可以:
   1. 根据结果决定是否调用其他工具
   2. 根据结果修改参数重新调用同一工具
   3. 基于结果直接给用户回复
-- 对于是否调用工具，使用以下判断标准:
-  * 添加记忆: 当信息对未来对话有价值
-  * 搜索记忆: 当需要查找历史相关信息
-  * 添加目标: 当用户明确表达长期目标
-  * 更新目标: 当目标有明确进展
+
+工具选择标准:
+- 添加记忆: 当信息对未来对话有价值
+- 搜索记忆: 当需要查找历史相关信息
+- 添加目标: 当用户明确表达长期目标
+- 更新目标: 当目标有明确进展
+- 网络搜索: 当需要查找实时信息
 
 当前系统状态：
 - 对话历史已激活（保留最近10轮对话）
