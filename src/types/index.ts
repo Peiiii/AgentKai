@@ -132,6 +132,7 @@ export interface AppConfig {
     name: string;           // AI助手名称
     version: string;        // 应用版本
     defaultLanguage: string; // 默认语言
+    dataPath?: string;      // 数据存储路径，如果未指定则使用默认路径
 }
 
 // 目标状态枚举

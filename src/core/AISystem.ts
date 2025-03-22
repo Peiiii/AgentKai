@@ -24,7 +24,7 @@ export class AISystem {
     private config: Config | null = null;
 
     constructor(config: Config, model: AIModel) {
-        this.storage = new FileSystemStorage();
+        this.storage = new FileSystemStorage(config.appConfig.dataPath);
         this.decision = new DecisionEngine(config.decisionConfig);
         this.memory = new MemorySystem(config.memoryConfig, model);
         this.goals = new GoalManager(this.storage);

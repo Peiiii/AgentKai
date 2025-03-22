@@ -240,6 +240,9 @@ DECISION_CONFIDENCE_THRESHOLD=0.7
 DECISION_MAX_RETRIES=3
 DECISION_MAX_REASONING_STEPS=5
 DECISION_MIN_CONFIDENCE_THRESHOLD=0.6
+
+# 应用配置
+APP_DATA_PATH=${path.join(os.homedir(), '.agentkai', 'data')}
 `;
     
     fs.writeFileSync(userConfigPath, defaultConfig, 'utf8');

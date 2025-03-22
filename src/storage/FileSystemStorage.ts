@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import { Goal, GoalStorageProvider, Memory, StorageProvider } from '../types';
 import { Logger } from '../utils/logger';
 
@@ -10,11 +11,19 @@ export class FileSystemStorage implements StorageProvider, GoalStorageProvider {
     private initialized: Promise<void>;
     private logger: Logger;
 
-    constructor(basePath: string = '.data') {
-        this.basePath = basePath;
-        this.goalsPath = path.join(basePath, 'goals');
-        this.memoriesPath = path.join(basePath, 'memories');
+    /**
+     * 文件系统存储构造函数
+     * @param basePath 基础路径，默认为用户目录下的.agentkai/data文件夹
+     */
+    constructor(basePath?: string) {
+        // 如果未指定基础路径，则使用默认路径
+        this.basePath = basePath || path.join(os.homedir(), '.agentkai', 'data');
+        this.goalsPath = path.join(this.basePath, 'goals');
+        this.memoriesPath = path.join(this.basePath, 'memories');
         this.logger = new Logger('FileSystemStorage');
+        
+        this.logger.info(`使用数据存储路径: ${this.basePath}`);
+        
         this.initialized = this.init().catch((error) => {
             this.logger.error('初始化存储目录失败:', error);
             throw error;
@@ -22,9 +31,15 @@ export class FileSystemStorage implements StorageProvider, GoalStorageProvider {
     }
 
     private async init() {
-        await fs.mkdir(this.basePath, { recursive: true });
-        await fs.mkdir(this.goalsPath, { recursive: true });
-        await fs.mkdir(this.memoriesPath, { recursive: true });
+        try {
+            await fs.mkdir(this.basePath, { recursive: true });
+            await fs.mkdir(this.goalsPath, { recursive: true });
+            await fs.mkdir(this.memoriesPath, { recursive: true });
+            this.logger.debug('存储目录初始化完成');
+        } catch (error) {
+            this.logger.error('创建存储目录失败:', error);
+            throw error;
+        }
     }
 
     private async ensureInitialized() {

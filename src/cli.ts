@@ -14,6 +14,7 @@ import inquirer from 'inquirer';
 import { spawn } from 'child_process';
 import path from 'path';
 import os from 'os';
+import fs from 'fs';
 
 // 加载环境变量
 dotenv.config();
@@ -61,6 +62,12 @@ program
 
   # 完全禁用日志输出（仅显示命令结果）
   $ agentkai --log-level silent memory --list
+
+  # 显示当前数据存储目录
+  $ agentkai config --data-dir
+
+  # 设置自定义数据存储目录
+  $ agentkai config --set APP_DATA_PATH /path/to/your/data
 `);
 
 // 解析命令行选项但不执行命令，以便尽早设置日志级别
@@ -103,6 +110,7 @@ const config: Config = {
         name: process.env.APP_NAME || '凯',
         version: process.env.APP_VERSION || '1.0.0',
         defaultLanguage: process.env.APP_DEFAULT_LANGUAGE || 'zh-CN',
+        dataPath: process.env.APP_DATA_PATH || path.join(os.homedir(), '.agentkai', 'data'),
     }
 };
 
@@ -436,6 +444,13 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
         .option('-p, --path', '显示配置文件路径')
         .option('-e, --edit', '使用编辑器打开配置文件')
         .option('-d, --debug', '使用DEBUG日志级别运行命令', false)
+        .option('--data-dir', '显示当前数据存储目录')
+        .addHelpText('after', `
+配置提示:
+  默认情况下，数据将存储在 "~/.agentkai/data" 目录下。
+  您可以通过设置 APP_DATA_PATH 环境变量或在配置文件中设置来自定义数据存储位置。
+  例如: agentkai config --set APP_DATA_PATH /path/to/your/data
+        `)
         .action(async (options, command) => {
             try {
                 // 如果指定了debug选项，临时设置日志级别为DEBUG
@@ -451,6 +466,26 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
                 }
                 
                 logger.debug('config命令', options);
+                
+                // 显示数据存储目录
+                if (options.dataDir) {
+                    const dataPath = process.env.APP_DATA_PATH || path.join(os.homedir(), '.agentkai', 'data');
+                    console.log('数据存储目录:');
+                    console.log(`  ${dataPath}`);
+                    
+                    // 检查目录是否存在
+                    try {
+                        const stats = fs.statSync(dataPath);
+                        if (stats.isDirectory()) {
+                            console.log('  ✅ 目录已存在');
+                        } else {
+                            console.log('  ❌ 路径存在但不是目录');
+                        }
+                    } catch (err) {
+                        console.log('  ❓ 目录尚未创建，将在首次使用时自动创建');
+                    }
+                    return;
+                }
                 
                 // 显示配置文件路径
                 if (options.path) {
