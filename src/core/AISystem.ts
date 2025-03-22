@@ -245,7 +245,7 @@ export class AISystem {
     }
 
     async searchMemories(query: string): Promise<Memory[]> {
-        console.log('\n[CLI] 开始搜索记忆:', query);
+        this.logger.info('开始搜索记忆:', query);
         const memories = await this.memory.searchMemories(query);
         return memories;
     }

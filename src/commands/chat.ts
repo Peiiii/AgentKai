@@ -70,14 +70,10 @@ export class ChatCommand {
                 // 显示输出，使用彩色
                 console.log(`\n${Colors.info}AI:${Colors.reset} ${response.output}\n`);
                 
-                // 显示token使用情况
+                // 显示token使用情况 - 让token信息始终显示，而不只是在debug模式下
                 const tokenInfo = (response as any).tokens;
                 if (tokenInfo) {
-                    this.logger.debug('\nToken 使用情况:', {
-                        提示词: tokenInfo.prompt,
-                        回复: tokenInfo.completion,
-                        总计: tokenInfo.total
-                    });
+                    console.log(`${Colors.dim}Token 使用情况: 提示词 ${tokenInfo.prompt} | 回复 ${tokenInfo.completion} | 总计 ${tokenInfo.total}${Colors.reset}`);
                 }
                 
                 this.logger.divider();
