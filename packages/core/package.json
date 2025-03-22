@@ -1,0 +1,54 @@
+{
+  "name": "@agentkai/core",
+  "version": "1.5.0",
+  "description": "AgentKai核心包，提供AI助手系统的基础功能",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist",
+    "dev": "tsc --watch",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "jest --coverage"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Peiiii/AgentKai.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "ai",
+    "autonomous",
+    "memory",
+    "decision-making",
+    "goal-oriented",
+    "agent",
+    "kai"
+  ],
+  "author": "Peiiii",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "hnswlib-node": "^2.1.1",
+    "openai": "^4.89.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.24",
+    "@types/uuid": "^9.0.8",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2"
+  }
+} 
