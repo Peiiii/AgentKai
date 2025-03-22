@@ -1,6 +1,6 @@
 {
   "name": "agentkai",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "description": "具有自主意识、长短期记忆、目标管理和自主决策能力的AI助手系统，其中AI助手名为'凯'(Kai)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
