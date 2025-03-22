@@ -20,7 +20,7 @@ const config = {
     maxTokens: 2000,
     temperature: 0.7,
     apiBaseUrl: process.env.AI_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1',
-    embeddingModel: 'text-embedding-v1',
+    embeddingModel: 'text-embedding-v3',
     embeddingBaseUrl: process.env.AI_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1',
   },
   memoryConfig: {

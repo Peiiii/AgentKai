@@ -65,7 +65,7 @@ export class ConfigService {
     this.config.set('app.name', '凯');
     this.config.set('app.dataPath', path.join(this.getEnv('HOME') || this.getEnv('USERPROFILE') || '.', '.agentkai', 'data'));
     this.config.set('memory.maxItems', 1000);
-    this.config.set('memory.vectorDimension', 1536);
+    this.config.set('memory.vectorDimension', 1024);
     this.config.set('ui.colorEnabled', true);
   }
   
@@ -307,7 +307,7 @@ export class ConfigService {
    */
   getMemoryConfig(): Record<string, any> {
     return {
-      vectorDimensions: this.get('memory.vectorDimension', 1536),
+      vectorDimensions: this.get('memory.vectorDimension', 1024),
       maxMemories: this.get('memory.maxItems', 1000),
       similarityThreshold: this.get('memory.similarityThreshold', 0.6),
       shortTermCapacity: this.get('memory.shortTermCapacity', 10),

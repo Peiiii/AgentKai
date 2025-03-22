@@ -25,11 +25,11 @@ describe('AISystem', () => {
                 temperature: 0.7,
                 model: 'qwen-max-latest',
                 apiBaseUrl: 'https://api.example.com',
-                embeddingModel: 'text-embedding-v1',
+                embeddingModel: 'text-embedding-v3',
                 embeddingBaseUrl: 'https://api.example.com/embeddings'
             },
             memoryConfig: {
-                vectorDimensions: 1536,
+                vectorDimensions: 1024,
                 maxMemories: 1000,
                 similarityThreshold: 0.8,
                 shortTermCapacity: 10,
@@ -56,7 +56,7 @@ describe('AISystem', () => {
             response: '测试响应',
             tokens: { prompt: 10, completion: 5 }
         });
-        mockModel.generateEmbedding.mockResolvedValue(new Array(1536).fill(0.1));
+        mockModel.generateEmbedding.mockResolvedValue(new Array(1024).fill(0.1));
 
         // 替换OpenAIModel的构造函数，使其返回我们的模拟实例
         (OpenAIModel as jest.MockedClass<typeof OpenAIModel>).mockImplementation(() => mockModel);

@@ -29,7 +29,7 @@ describe('OpenAIModel', () => {
         temperature: 0.7,
         model: 'qwen-max-latest',
         apiBaseUrl: 'https://api.example.com',
-        embeddingModel: 'text-embedding-v1',
+        embeddingModel: 'text-embedding-v3',
         embeddingBaseUrl: 'https://api.example.com/embeddings'
     };
 
@@ -90,7 +90,7 @@ describe('OpenAIModel', () => {
     describe('generateEmbedding', () => {
         it('should generate text embeddings', async () => {
             const text = '测试文本';
-            const mockEmbedding = new Array(1536).fill(0.1);
+            const mockEmbedding = new Array(1024).fill(0.1);
 
             const mockResponse = {
                 data: [{
@@ -103,7 +103,7 @@ describe('OpenAIModel', () => {
             const embedding = await model.generateEmbedding(text);
             
             expect(Array.isArray(embedding)).toBe(true);
-            expect(embedding.length).toBe(1536);
+            expect(embedding.length).toBe(1024);
             expect(embedding.every(n => typeof n === 'number')).toBe(true);
         });
 
