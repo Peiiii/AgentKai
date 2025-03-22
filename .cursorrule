@@ -1,0 +1,16 @@
+#### OpenAIModel
+- 实现与 OpenAI API 的交互
+- 提供文本生成和嵌入生成功能
+- 基于阿里云 DashScope 的 Qwen-Max-Latest 模型
+- 支持向量嵌入生成（text-embedding-v3）
+- 配置项包括：
+  - 模型名称：qwen-max-latest
+  - API基础URL：https://dashscope.aliyuncs.com/compatible-mode/v1
+  - 向量模型：text-embedding-v3
+  - 向量API URL：与基础URL相同
+
+
+
+
+## 准则
+不要乱改代码，要分析原因，思考最佳实践再行动

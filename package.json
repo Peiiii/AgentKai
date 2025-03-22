@@ -1,0 +1,66 @@
+{
+  "name": "agentkai",
+  "version": "1.0.0",
+  "description": "具有自主意识、长短期记忆、目标管理和自主决策能力的AI助手系统，其中AI助手名为'凯'(Kai)",
+  "main": "dist/index.js",
+  "bin": {
+    "agentkai": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "cli": "ts-node src/cli.ts",
+    "memory-list": "ts-node src/cli.ts memory --list",
+    "memory-add": "ts-node src/cli.ts memory --add",
+    "memory-search": "ts-node src/cli.ts memory --search",
+    "memory-remove": "ts-node src/cli.ts memory --remove",
+    "goals-list": "ts-node src/cli.ts goals --list",
+    "goals-add": "ts-node src/cli.ts goals --add",
+    "goals-progress": "ts-node src/cli.ts goals --progress",
+    "goals-status": "ts-node src/cli.ts goals --status",
+    "chat": "ts-node src/cli.ts chat",
+    "web": "ts-node src/web/server.ts",
+    "test": "jest --coverage",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test:memory": "ts-node src/examples/memory-test.ts"
+  },
+  "keywords": [
+    "ai",
+    "autonomous",
+    "memory",
+    "decision-making",
+    "goal-oriented"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.24",
+    "@types/socket.io": "^3.0.2",
+    "@types/uuid": "^9.0.8",
+    "aliyun-dashscope": "^0.0.2",
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "hnswlib-node": "^2.1.0",
+    "inquirer": "^8.2.6",
+    "openai": "^4.89.0",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^8.2.10",
+    "@types/jest": "^29.5.12",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.0",
+    "prettier": "^3.2.5",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
