@@ -15,6 +15,11 @@ pnpm version-packages
 
 # 3. 构建所有包并发布到npm
 pnpm build && pnpm release
+
+# 4. 推送到远程仓库
+git push
+git push origin v1.6.0
+
 ```
 
 ## 当前项目设置
