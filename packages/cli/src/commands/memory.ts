@@ -1,6 +1,6 @@
-import { AISystem } from '../core/AISystem';
-import { Memory } from '../types';
-import { Logger } from '../utils/logger';
+import { AISystem } from '@agentkai/core';
+import { Memory } from '@agentkai/core';
+import { Logger } from '@agentkai/core';
 
 export interface MemoryCommandOptions {
     add?: string;

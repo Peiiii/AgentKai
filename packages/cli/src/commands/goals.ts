@@ -1,6 +1,6 @@
-import { AISystem } from '../core/AISystem';
-import { Goal, GoalStatus } from '../types';
-import { Logger, Colors } from '../utils/logger';
+import { AISystem } from '@agentkai/core';
+import { Goal, GoalStatus } from '@agentkai/core';
+import { Logger, Colors } from '@agentkai/core';
 
 export interface GoalCommandOptions {
     add?: string;

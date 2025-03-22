@@ -1,16 +1,12 @@
 {
-  "extends": "./tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@agentkai/core": ["packages/core/src"],
-      "@agentkai/core/*": ["packages/core/src/*"],
-      "@agentkai/cli": ["packages/cli/src"],
-      "@agentkai/cli/*": ["packages/cli/src/*"]
-    }
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "composite": true
   },
-  "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/cli" }
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

@@ -19,13 +19,23 @@ export * from './goals/GoalManager';
 
 // 5. 存储系统
 export * from './storage/FileSystemStorage';
-export * from './storage/StorageFactory';
+// 显式导出StorageFactory避免命名冲突
+export { StorageFactory } from './storage/StorageFactory';
 
 // 6. 服务
 export * from './services/config';
-export * from './services/tools';
+// 显式导出ToolService和ToolRegistration避免命名冲突
+export { ToolService, ToolRegistration, Tool, ToolHandler, ToolParameter } from './services/tools';
 
 // 7. 工具
 export * from './utils/logger';
 export * from './utils/errors';
-export * from './utils/config'; 
+export * from './utils/performance';
+export * from './utils/logging'; 
+
+
+export * from './models/OpenAIModel';
+
+export * from './plugins/basic-tools';
+export * from './plugins/goals-plugin';
+export * from './plugins/memory-plugin';

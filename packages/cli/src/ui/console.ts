@@ -1,6 +1,6 @@
 import * as readline from 'readline';
 import { UserInterface } from './interfaces';
-import { Colors } from '../utils/logger';
+import { Colors } from '@agentkai/core';
 
 /**
  * 控制台界面实现，使用命令行与用户交互

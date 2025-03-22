@@ -1,14 +1,7 @@
 import { Command } from 'commander';
-import { AISystem } from '../core/AISystem';
+import { AISystem, BasicToolsPlugin, ConfigService, ToolService, SystemAdapter, Logger, LoggingMiddleware, Config, AppConfig, MemoryConfig, ModelConfig, OpenAIModel } from '@agentkai/core';
 import { UserInterface } from '../ui/interfaces';
 import { ConsoleUI } from '../ui/console';
-import { ConfigService } from '../services/config';
-import { ToolService } from '../services/tools';
-import { BasicToolsPlugin } from '../plugins/basic-tools';
-import { SystemAdapter } from '../core/adapter';
-import { Logger } from '../utils/logger';
-import { LoggingMiddleware } from '../utils/logging';
-import { Config, AppConfig, MemoryConfig, ModelConfig, DecisionConfig } from '../types';
 
 // 声明全局属性
 declare global {
@@ -162,8 +155,6 @@ async function initializeAISystem(configService: ConfigService): Promise<void> {
     }
     
     logger.info('创建新的AISystem实例');
-    // 使用ai目录下的OpenAIModel作为替代
-    const { OpenAIModel } = await import('../models/OpenAIModel');
     
     // 使用ConfigService获取AI模型配置
     const modelConfig = configService.getAIModelConfig();
@@ -185,7 +176,6 @@ async function initializeAISystem(configService: ConfigService): Promise<void> {
       appConfig: configService.getAppConfig() as AppConfig,
       memoryConfig: configService.getMemoryConfig() as MemoryConfig,
       modelConfig: configService.getAIModelConfig() as ModelConfig,
-      decisionConfig: configService.getDecisionConfig() as DecisionConfig
     };
     
     // 创建AISystem实例

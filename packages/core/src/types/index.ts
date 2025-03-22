@@ -122,7 +122,6 @@ export interface SystemState {
 export interface Config {
     modelConfig: ModelConfig;
     memoryConfig: MemoryConfig;
-    decisionConfig: DecisionConfig;
     appConfig: AppConfig;
 }
 
@@ -181,14 +180,6 @@ export interface MemoryConfig {
     similarityThreshold: number;
     shortTermCapacity: number;
     importanceThreshold: number;
-}
-
-// 决策配置接口
-export interface DecisionConfig {
-    confidenceThreshold: number;
-    maxRetries: number;
-    maxReasoningSteps: number;
-    minConfidenceThreshold: number;
 }
 
 // 系统响应接口

@@ -1,7 +1,7 @@
-import { AISystem } from '../core/AISystem';
-import { Memory } from '../types';
+import { AISystem } from '@agentkai/core';
+import { Memory } from '@agentkai/core';
 import * as readline from 'readline';
-import { Logger, Colors } from '../utils/logger';
+import { Logger, Colors } from '@agentkai/core';
 import * as path from 'path';
 import * as fs from 'fs';
 
