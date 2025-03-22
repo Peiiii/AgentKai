@@ -15,6 +15,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import { createLayerTestCommand } from './commands/layer-test';
 
 // 加载环境变量
 dotenv.config();
@@ -631,6 +632,10 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
                 process.exit(1);
             }
         });
+
+    // 注册三层架构测试命令（仅在开发环境使用）
+    const layerTestCommand = createLayerTestCommand();
+    program.addCommand(layerTestCommand);
 
     // 解析命令行参数
     program.parse(process.argv);

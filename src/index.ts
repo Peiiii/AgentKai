@@ -7,9 +7,6 @@ export { MemorySystem } from './memory/MemorySystem';
 // 目标管理
 export { GoalManager } from './goals/GoalManager';
 
-// 决策引擎
-export { DecisionEngine } from './decision/DecisionEngine';
-
 // 模型
 export { OpenAIModel } from './models/OpenAIModel';
 
