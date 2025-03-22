@@ -64,7 +64,7 @@ program
   $ agentkai --log-level silent memory --list
 
   # 显示当前数据存储目录
-  $ agentkai config --data-dir
+  $ agentkai config --data-path
 
   # 设置自定义数据存储目录
   $ agentkai config --set APP_DATA_PATH /path/to/your/data
@@ -444,7 +444,7 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
         .option('-p, --path', '显示配置文件路径')
         .option('-e, --edit', '使用编辑器打开配置文件')
         .option('-d, --debug', '使用DEBUG日志级别运行命令', false)
-        .option('--data-dir', '显示当前数据存储目录')
+        .option('--data-path', '显示当前数据存储目录')
         .addHelpText('after', `
 配置提示:
   默认情况下，数据将存储在 "~/.agentkai/data" 目录下。
@@ -468,7 +468,7 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
                 logger.debug('config命令', options);
                 
                 // 显示数据存储目录
-                if (options.dataDir) {
+                if (options.dataPath) {
                     const dataPath = process.env.APP_DATA_PATH || path.join(os.homedir(), '.agentkai', 'data');
                     console.log('数据存储目录:');
                     console.log(`  ${dataPath}`);
