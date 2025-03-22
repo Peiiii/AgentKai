@@ -3,19 +3,20 @@ import { Command } from 'commander';
 import dotenv from 'dotenv';
 import { OpenAIModel } from './models/OpenAIModel';
 import { AISystem } from './core/AISystem';
-import { Config } from './types';
+import { Config, ModelConfig, MemoryConfig, DecisionConfig, AppConfig } from './types';
 import { ChatCommand } from './commands/chat';
 import { GoalCommand } from './commands/goals';
 import { MemoryCommand } from './commands/memory';
-import { validateConfig, parseNumber, loadAllConfigs, findConfigFiles, createDefaultUserConfig, saveConfig, ConfigValidationError } from './utils/config';
+import { validateConfig, loadAllConfigs, findConfigFiles, createDefaultUserConfig, saveConfig, ConfigValidationError } from './utils/config';
 import { Logger, LogLevel } from './utils/logger';
 import { wrapError } from './utils/errors';
 import inquirer from 'inquirer';
 import { spawn } from 'child_process';
-import path from 'path';
-import os from 'os';
+import * as path from 'path';
+import * as os from 'os';
 import fs from 'fs';
 import { createLayerTestCommand } from './commands/layer-test';
+import { ConfigService } from './services/config';
 
 // 加载环境变量
 dotenv.config();
@@ -82,37 +83,15 @@ if (process.argv.includes('-h') || process.argv.includes('--help') ||
 // 创建日志记录器（在处理完命令行参数后）
 const logger = new Logger('CLI');
 
+// 加载配置服务
+const configService = ConfigService.getInstance();
+
 // 创建配置
 const config: Config = {
-    modelConfig: {
-        model: process.env.AI_MODEL_NAME || 'qwen-max-latest',
-        apiKey: process.env.AI_API_KEY || '',
-        modelName: process.env.AI_MODEL_NAME || 'qwen-max-latest',
-        maxTokens: parseNumber(process.env.AI_MAX_TOKENS, 2000, { min: 100, max: 100000 }),
-        temperature: parseNumber(process.env.AI_TEMPERATURE, 0.7, { min: 0, max: 2 }),
-        apiBaseUrl: process.env.AI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        embeddingModel: process.env.AI_EMBEDDING_MODEL || 'text-embedding-v3',
-        embeddingBaseUrl: process.env.AI_EMBEDDING_BASE_URL || process.env.AI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    },
-    memoryConfig: {
-        vectorDimensions: 1024,
-        maxMemories: parseNumber(process.env.MEMORY_MAX_SIZE, 1000, { min: 10 }),
-        similarityThreshold: parseNumber(process.env.MEMORY_SIMILARITY_THRESHOLD, 0.6, { min: 0, max: 1 }),
-        shortTermCapacity: parseNumber(process.env.MEMORY_SHORT_TERM_CAPACITY, 10, { min: 1 }),
-        importanceThreshold: parseNumber(process.env.MEMORY_IMPORTANCE_THRESHOLD, 0.5, { min: 0, max: 1 }),
-    },
-    decisionConfig: {
-        confidenceThreshold: parseNumber(process.env.DECISION_CONFIDENCE_THRESHOLD, 0.7, { min: 0, max: 1 }),
-        maxRetries: parseNumber(process.env.DECISION_MAX_RETRIES, 3, { min: 0 }),
-        maxReasoningSteps: parseNumber(process.env.DECISION_MAX_REASONING_STEPS, 5, { min: 1 }),
-        minConfidenceThreshold: parseNumber(process.env.DECISION_MIN_CONFIDENCE_THRESHOLD, 0.6, { min: 0, max: 1 }),
-    },
-    appConfig: {
-        name: process.env.APP_NAME || '凯',
-        version: process.env.APP_VERSION || '1.0.0',
-        defaultLanguage: process.env.APP_DEFAULT_LANGUAGE || 'zh-CN',
-        dataPath: process.env.APP_DATA_PATH || path.join(os.homedir(), '.agentkai', 'data'),
-    }
+    modelConfig: configService.getAIModelConfig() as ModelConfig,
+    memoryConfig: configService.getMemoryConfig() as MemoryConfig,
+    decisionConfig: configService.getDecisionConfig() as DecisionConfig,
+    appConfig: configService.getAppConfig() as AppConfig
 };
 
 // 创建和编辑配置的核心方法
@@ -179,7 +158,7 @@ async function createOrEditConfig(): Promise<void> {
             const userConfigPath = path.join(USER_CONFIG_DIR, 'config');
             
             // 使用更可靠的方式打开编辑器
-            const editor = process.env.EDITOR || process.env.VISUAL || (process.platform === 'win32' ? 'notepad.exe' : 'vi');
+            const editor = configService.getEnv('EDITOR') || configService.getEnv('VISUAL') || (process.platform === 'win32' ? 'notepad.exe' : 'vi');
             
             console.log(`打开编辑器: ${editor} ${userConfigPath}`);
             
@@ -547,7 +526,7 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
                     }
                     
                     // 使用系统默认编辑器打开配置文件
-                    const editor = process.env.EDITOR || process.env.VISUAL || (process.platform === 'win32' ? 'notepad.exe' : 'vi');
+                    const editor = configService.getEnv('EDITOR') || configService.getEnv('VISUAL') || (process.platform === 'win32' ? 'notepad.exe' : 'vi');
                     
                     const child = spawn(editor, [configPath], {
                         stdio: 'inherit',

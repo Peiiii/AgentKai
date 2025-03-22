@@ -8,6 +8,7 @@ import { BasicToolsPlugin } from '../plugins/basic-tools';
 import { SystemAdapter } from '../core/adapter';
 import { Logger } from '../utils/logger';
 import { LoggingMiddleware } from '../utils/logging';
+import { Config, AppConfig, MemoryConfig, ModelConfig, DecisionConfig } from '../types';
 
 // 声明全局属性
 declare global {
@@ -31,30 +32,32 @@ export function createLayerTestCommand(): Command {
         await configService.initialize();
         logger.info(`已加载配置, 版本: ${configService.getVersion()}`);
         
-        // 2. 获取AISystem实例
-        // 这里简化处理，实际应从工厂或上下文获取
+        // 2. 初始化AISystem实例
+        await initializeAISystem(configService);
+        
+        // 3. 获取AISystem实例
         const aiSystem = global.aiSystem;
         if (!aiSystem) {
           logger.error('未初始化AISystem实例');
           return;
         }
         
-        // 3. 创建系统适配器
+        // 4. 创建系统适配器
         const adapter = new SystemAdapter(aiSystem);
         
-        // 4. 创建用户界面
+        // 5. 创建用户界面
         const ui = new ConsoleUI();
         
-        // 5. 注册工具
+        // 6. 注册工具
         const toolService = ToolService.getInstance();
         const basicTools = new BasicToolsPlugin(aiSystem);
         toolService.registerTools(basicTools.getTools());
         logger.info(`已注册 ${toolService.getAllTools().length} 个工具`);
 
-        // 6. 显示欢迎信息
+        // 7. 显示欢迎信息
         ui.showWelcome(`三层架构测试 v${configService.getVersion()}`);
         
-        // 7. 运行简单测试流程
+        // 8. 运行简单测试流程
         await runTestProcess(ui, adapter, configService, toolService);
         
       } catch (error) {
@@ -141,5 +144,58 @@ async function runTestProcess(
     } else {
       ui.showError('测试失败: 未知错误');
     }
+  }
+}
+
+/**
+ * 初始化AISystem
+ * @param configService 配置服务
+ */
+async function initializeAISystem(configService: ConfigService): Promise<void> {
+  const logger = new Logger('AISystemInit');
+  
+  try {
+    // 如果已存在实例，直接返回
+    if (global.aiSystem) {
+      logger.info('使用现有AISystem实例');
+      return;
+    }
+    
+    logger.info('创建新的AISystem实例');
+    // 使用ai目录下的OpenAIModel作为替代
+    const { OpenAIModel } = await import('../models/OpenAIModel');
+    
+    // 使用ConfigService获取AI模型配置
+    const modelConfig = configService.getAIModelConfig();
+    
+    const model = new OpenAIModel({
+      apiKey: modelConfig.apiKey,
+      modelName: modelConfig.modelName,
+      model: modelConfig.model,
+      maxTokens: modelConfig.maxTokens,
+      temperature: modelConfig.temperature,
+      apiBaseUrl: modelConfig.apiBaseUrl,
+      embeddingModel: modelConfig.embeddingModel,
+      embeddingBaseUrl: modelConfig.embeddingBaseUrl
+    });
+    
+    // 创建配置
+    const config: Config = {
+      appConfig: configService.getAppConfig() as AppConfig,
+      memoryConfig: configService.getMemoryConfig() as MemoryConfig,
+      modelConfig: configService.getAIModelConfig() as ModelConfig,
+      decisionConfig: configService.getDecisionConfig() as DecisionConfig
+    };
+    
+    // 创建AISystem实例
+    global.aiSystem = new AISystem(config, model);
+    
+    // 初始化
+    await global.aiSystem.initialize();
+    
+    logger.info('AISystem初始化完成');
+  } catch (error) {
+    logger.error('AISystem初始化失败', error);
+    throw error;
   }
 } 
