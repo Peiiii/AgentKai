@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "agentkai": "./dist/cli.js"
+    "agentkai": "dist/cli.js"
   },
   "files": [
     "dist",

@@ -29,66 +29,85 @@ export class MemoryCommand {
             await this.removeMemory(options.remove);
         }
 
-        if (options.list) {
+        // 如果没有其他操作，或者显式要求列出，则显示所有记忆
+        if (!options.add && !options.search && !options.remove || options.list) {
             await this.listMemories();
         }
     }
 
     private async addMemory(content: string): Promise<void> {
-        this.logger.info('添加记忆', { content: content.substring(0, 50) + (content.length > 50 ? '...' : '') });
-        await this.system.addMemory(content, {
-            type: 'event',
-            importance: 0.5,
-            timestamp: Date.now(),
-        });
-        this.logger.info('记忆已添加');
+        this.logger.section('添加记忆');
+        this.logger.info(`正在添加新记忆: ${content}`);
         
-        // 用户界面输出
-        console.log('记忆已添加成功');
+        try {
+            const memory = await this.system.addMemory(content, {
+                type: 'manual',
+                timestamp: Date.now(),
+            });
+            this.logger.success('记忆已添加');
+            this.logger.debug('记忆详情:', memory);
+        } catch (error) {
+            this.logger.error('添加记忆失败:', error);
+            throw error;
+        }
     }
 
     private async searchMemories(query: string): Promise<void> {
-        const searchQuery = query.trim();
-        if (!searchQuery) {
-            throw new Error('搜索内容不能为空');
-        }
-
-        this.logger.info('开始搜索', { query: searchQuery });
-        const memories = await this.system.searchMemories(searchQuery);
-        this.displayMemories(memories, '搜索结果');
-    }
-
-    private async listMemories(): Promise<void> {
-        this.logger.info('获取所有记忆');
-        const memories = await this.system.getAllMemories();
-        this.displayMemories(memories, '所有记忆');
-    }
-
-    private async removeMemory(id: string): Promise<void> {
-        this.logger.info('删除记忆', { id });
-        await this.system.deleteMemory(id);
-        this.logger.info('记忆已删除');
+        this.logger.section('搜索记忆');
+        this.logger.info(`正在搜索: "${query}"`);
         
-        // 用户界面输出
-        console.log('记忆已成功删除');
-    }
-
-    private displayMemories(memories: Memory[], title: string): void {
-        console.log(`\n${title}:`);
-        console.log('----------------------------------------');
+        const memories = await this.system.searchMemories(query);
+        this.logger.info(`找到 ${memories.length} 条相关记忆`);
         
         if (memories.length === 0) {
-            console.log('没有找到记忆。');
+            this.logger.info('没有找到相关记忆');
             return;
         }
 
-        memories.forEach((memory, index) => {
-            console.log(`记忆 ${index + 1}:`);
-            console.log(`内容: ${memory.content}`);
-            console.log(`类型: ${memory.type}`);
-            console.log(`重要性: ${memory.importance}`);
-            console.log(`时间: ${new Date(memory.timestamp).toLocaleString()}`);
-            console.log('----------------------------------------');
+        this.logger.divider();
+        memories.forEach((memory: Memory, index: number) => {
+            const date = new Date(memory.metadata.timestamp || 0).toLocaleString();
+            this.logger.info(`记忆 ${index + 1}/${memories.length}:`);
+            this.logger.info(`内容: ${memory.content}`);
+            this.logger.info(`日期: ${date}`);
+            this.logger.info(`相似度: ${(memory as any).similarity?.toFixed(2) || '未知'}`);
+            this.logger.divider();
+        });
+    }
+
+    private async removeMemory(id: string): Promise<void> {
+        this.logger.section('删除记忆');
+        this.logger.info(`正在删除记忆: ${id}`);
+        
+        try {
+            await this.system.deleteMemory(id);
+            this.logger.success('记忆已删除');
+        } catch (error) {
+            this.logger.error('删除记忆失败:', error);
+            throw error;
+        }
+    }
+
+    private async listMemories(): Promise<void> {
+        this.logger.section('记忆列表');
+        const memories = await this.system.getAllMemories();
+        
+        if (memories.length === 0) {
+            this.logger.info('没有找到记忆');
+            return;
+        }
+
+        this.logger.info(`总共有 ${memories.length} 条记忆`);
+        this.logger.divider();
+        
+        memories.forEach((memory: Memory, index: number) => {
+            const date = new Date(memory.metadata.timestamp || 0).toLocaleString();
+            this.logger.info(`记忆 ${index + 1}/${memories.length}:`);
+            this.logger.info(`ID: ${memory.id}`);
+            this.logger.info(`内容: ${memory.content}`);
+            this.logger.info(`日期: ${date}`);
+            this.logger.info(`类型: ${memory.metadata.type || '未知'}`);
+            this.logger.divider();
         });
     }
 } 

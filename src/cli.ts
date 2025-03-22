@@ -31,15 +31,23 @@ program
     .name('agentkai')
     .description('凯 - AI代理系统命令行工具')
     .version('1.0.0')
-    .option('-l, --log-level <level>', '设置日志级别 (debug, info, warn, error, silent)', 'info')
+    .option('-l, --log-level <level>', '设置日志级别 (debug, info, warn, error, silent)', 'warn')
     .hook('preAction', (thisCommand) => {
         const options = thisCommand.opts();
         // 设置全局日志级别
         Logger.setGlobalLogLevel(options.logLevel);
+        
+        // 设置日志格式选项
+        Logger.setGlobalOptions({
+            enableColors: true,
+            showTimestamp: options.logLevel === 'debug', // 只在调试模式下显示时间戳
+            showLogLevel: options.logLevel !== 'silent', // 静默模式下不显示日志级别
+            showModule: options.logLevel === 'debug' || options.logLevel === 'info', // 仅在DEBUG或INFO模式下显示模块名
+        });
     })
     .addHelpText('after', `
 示例:
-  # 以INFO级别运行聊天命令（默认）
+  # 以WARN级别运行聊天命令（默认）
   $ agentkai chat
 
   # 以DEBUG级别运行聊天命令（方法1：使用全局选项）
@@ -48,8 +56,8 @@ program
   # 以DEBUG级别运行聊天命令（方法2：使用命令特定选项）
   $ agentkai chat --debug
 
-  # 以WARN级别运行所有命令，减少输出
-  $ agentkai --log-level warn chat
+  # 以INFO级别运行所有命令，显示更多信息
+  $ agentkai --log-level info chat
 
   # 完全禁用日志输出（仅显示命令结果）
   $ agentkai --log-level silent memory --list
