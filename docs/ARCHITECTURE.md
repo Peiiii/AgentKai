@@ -48,6 +48,160 @@ graph TB
     CLI --> AISystem
 ```
 
+## 系统架构设计
+
+AgentKai系统采用了模块化、分层架构设计，以提高代码复用性、可维护性和扩展性。
+
+### 三层架构
+
+最新版本的AgentKai采用了经典的三层架构模式，将系统划分为：
+
+```mermaid
+graph TB
+    subgraph UI层[用户界面层]
+        UserInterface[用户界面接口]
+        ConsoleUI[控制台UI实现]
+        WebUI[Web界面实现]
+    end
+    
+    subgraph BLL层[业务逻辑层]
+        ConfigService[配置服务]
+        ToolService[工具服务]
+        AISystem[AI系统]
+        MemorySystem[记忆系统]
+        GoalManager[目标管理器]
+    end
+    
+    subgraph DAL层[数据访问层]
+        StorageProvider[存储提供者接口]
+        FileSystemStorage[文件系统存储]
+        DatabaseStorage[数据库存储]
+    end
+    
+    %% 层间连接
+    UI层 --> BLL层
+    BLL层 --> DAL层
+    
+    %% 具体组件连接
+    ConsoleUI --> ConfigService
+    ConsoleUI --> AISystem
+    AISystem --> ConfigService
+    AISystem --> ToolService
+    AISystem --> MemorySystem
+    AISystem --> GoalManager
+    MemorySystem --> StorageProvider
+    GoalManager --> StorageProvider
+    FileSystemStorage --> StorageProvider
+    DatabaseStorage --> StorageProvider
+```
+
+#### 1. 用户界面层 (UI Layer)
+
+用户界面层负责与用户的交互，处理输入和输出，包括：
+
+- **UserInterface接口**: 定义统一的用户交互方法，如显示消息、获取输入等。
+- **ConsoleUI实现**: 为命令行环境提供交互界面。
+- **WebUI实现**: 为Web环境提供基于浏览器的交互界面。
+
+#### 2. 业务逻辑层 (Business Logic Layer)
+
+业务逻辑层包含系统的核心功能和业务规则，负责协调各个组件的工作：
+
+- **ConfigService**: 集中管理系统配置，提供统一的配置获取和设置接口。
+- **ToolService**: 管理可用工具，处理工具注册和执行。
+- **AISystem**: 核心AI协调器，处理用户输入并生成回复。
+- **MemorySystem**: 管理系统记忆，包括短期和长期记忆。
+- **GoalManager**: 管理系统目标，跟踪目标进度和状态。
+
+#### 3. 数据访问层 (Data Access Layer)
+
+数据访问层处理数据的存储和检索，为上层提供数据服务：
+
+- **StorageProvider接口**: 定义统一的数据存储与检索接口。
+- **FileSystemStorage**: 基于文件系统的存储实现。
+- **DatabaseStorage**: 基于数据库的存储实现（未来扩展）。
+
+### 核心组件详解
+
+#### ConfigService
+
+ConfigService是一个单例服务，负责管理系统的所有配置项：
+
+- 提供分层配置加载（默认配置 < 包信息 < 环境变量 < 用户配置）
+- 封装环境变量访问，避免直接使用process.env
+- 提供类型安全的配置获取方法
+- 支持配置持久化和重载
+
+配置获取示例：
+```typescript
+// 获取AI模型配置
+const modelConfig = configService.getAIModelConfig();
+
+// 获取数据存储路径
+const dataPath = configService.getDataPath();
+
+// 安全访问环境变量
+const apiKey = configService.getEnv('AI_API_KEY');
+```
+
+#### LoggingMiddleware
+
+LoggingMiddleware提供了一种管理日志输出上下文的便捷方式：
+
+- **withContext**: 创建临时日志上下文
+- **withSilentLogs**: 执行时禁用大部分日志输出
+- **withUIContext**: 提供UI友好的日志输出
+- **withDebugContext**: 临时启用调试日志级别
+
+使用示例：
+```typescript
+// 执行过程中禁用非关键日志
+await LoggingMiddleware.withSilentLogs(async () => {
+  // 只显示错误日志的代码
+});
+
+// 临时启用调试级别
+await LoggingMiddleware.withDebugContext(async () => {
+  // 显示更详细日志的代码
+});
+```
+
+#### 系统适配器 (SystemAdapter)
+
+为支持新旧系统共存和平滑过渡，AgentKai引入了系统适配器模式：
+
+- 封装旧系统接口，提供统一API给新组件
+- 处理新旧数据格式的转换
+- 确保向后兼容性
+
+这使得系统可以逐步迁移到新架构，而不会破坏现有功能。
+
+### 工具插件系统
+
+新版AgentKai实现了基于插件的工具注册机制：
+
+- **ToolService**: 中心工具注册表
+- **ToolPlugin接口**: 插件需实现的接口
+- **BasicToolsPlugin**: 基础工具集实现
+
+工具注册示例：
+```typescript
+// 创建和注册插件
+const toolService = ToolService.getInstance();
+const basicTools = new BasicToolsPlugin(aiSystem);
+toolService.registerTools(basicTools.getTools());
+```
+
+### 跨层通信
+
+系统各层之间通过明确定义的接口进行通信：
+
+1. UI层通过接口调用业务层
+2. 业务层通过数据访问层接口获取数据
+3. 各组件通过事件总线发布/订阅事件（未来扩展）
+
+这种松耦合设计使得各部分可以独立开发和测试，同时确保系统的可扩展性和可维护性。
+
 ## 系统组件说明
 
 ### 1. 核心系统 (Core)
