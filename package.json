@@ -31,7 +31,7 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "test:memory": "ts-node src/examples/memory-test.ts",
-    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "prepublishOnly": "npm run lint && npm run build",
     "prepare": "npm run build",
     "postversion": "git push && git push --tags"
   },

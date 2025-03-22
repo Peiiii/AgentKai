@@ -21,6 +21,7 @@ export class AISystem {
     private logger: Logger;
     private performance: PerformanceMonitor;
     private requestTimeoutMs: number = 30000; // 默认请求超时时间为30秒
+    private config: Config | null = null;
 
     constructor(config: Config, model: AIModel) {
         this.storage = new FileSystemStorage();
@@ -33,6 +34,7 @@ export class AISystem {
         this.tools = new ToolManager();
         this.logger = new Logger('AISystem');
         this.performance = new PerformanceMonitor('AISystem');
+        this.config = config;
     }
 
     async initialize(): Promise<void> {
@@ -266,7 +268,7 @@ export class AISystem {
         return this.goals.addGoal(goal);
     }
 
-    async getGoal(id: string): Promise<Goal> {
+    async getGoal(id: string): Promise<Goal | null> {
         return this.goals.getGoal(id);
     }
 
@@ -302,7 +304,9 @@ export class AISystem {
     }
 
     private buildSystemPrompt(): string {
-        return `你是一个AI助手，负责帮助用户完成任务。
+        const aiName = this.config?.appConfig?.name || '凯';
+        
+        return `你是一个名为"${aiName}"的AI助手，负责帮助用户完成任务。
 
 请遵循以下规则：
 1. 保持回应简洁明了，直接给出答案
@@ -311,6 +315,7 @@ export class AISystem {
 4. 注意上下文连续性，参考对话历史回答问题
 5. 根据需要使用工具，特别是保存重要信息到长期记忆
 6. 如果用户输入不明确，主动询问细节
+7. 当用户询问你的名字时，你应该回答你的名字是"${aiName}"
 
 记忆管理：
 - 短期记忆：当前对话历史，自动管理

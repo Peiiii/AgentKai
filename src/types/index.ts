@@ -124,6 +124,14 @@ export interface Config {
     modelConfig: ModelConfig;
     memoryConfig: MemoryConfig;
     decisionConfig: DecisionConfig;
+    appConfig: AppConfig;
+}
+
+// 应用配置接口
+export interface AppConfig {
+    name: string;           // AI助手名称
+    version: string;        // 应用版本
+    defaultLanguage: string; // 默认语言
 }
 
 // 目标状态枚举

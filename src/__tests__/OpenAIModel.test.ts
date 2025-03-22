@@ -26,7 +26,11 @@ describe('OpenAIModel', () => {
         apiKey: 'test-api-key',
         modelName: 'qwen-max-latest',
         maxTokens: 2000,
-        temperature: 0.7
+        temperature: 0.7,
+        model: 'qwen-max-latest',
+        apiBaseUrl: 'https://api.example.com',
+        embeddingModel: 'text-embedding-v1',
+        embeddingBaseUrl: 'https://api.example.com/embeddings'
     };
 
     beforeEach(() => {
@@ -37,7 +41,8 @@ describe('OpenAIModel', () => {
     describe('generateResponse', () => {
         it('should generate chat responses', async () => {
             const messages = [
-                { role: 'user', content: '你好' }
+                '系统：你是一个AI助手',
+                '用户：你好'
             ];
 
             const mockResponse = {
@@ -45,30 +50,40 @@ describe('OpenAIModel', () => {
                     message: {
                         content: '你好！我是AI助手。'
                     }
-                }]
+                }],
+                usage: {
+                    prompt_tokens: 10,
+                    completion_tokens: 5
+                }
             };
 
             mockCreate.mockResolvedValue(mockResponse);
 
             const response = await model.generateResponse(messages);
-            expect(response).toBe('你好！我是AI助手。');
+            expect(response.response).toBe('你好！我是AI助手。');
+            expect(response.tokens).toEqual({ prompt: 10, completion: 5 });
         });
 
         it('should handle empty messages', async () => {
-            const messages: any[] = [];
+            const messages: string[] = [];
 
             const mockResponse = {
                 choices: [{
                     message: {
                         content: '我能帮你什么？'
                     }
-                }]
+                }],
+                usage: {
+                    prompt_tokens: 5,
+                    completion_tokens: 3
+                }
             };
 
             mockCreate.mockResolvedValue(mockResponse);
 
             const response = await model.generateResponse(messages);
-            expect(response).toBe('我能帮你什么？');
+            expect(response.response).toBe('我能帮你什么？');
+            expect(response.tokens).toEqual({ prompt: 5, completion: 3 });
         });
     });
 
@@ -92,28 +107,16 @@ describe('OpenAIModel', () => {
             expect(embedding.every(n => typeof n === 'number')).toBe(true);
         });
 
-        it('should handle empty text', async () => {
+        it('should reject empty text', async () => {
             const text = '';
-            const mockEmbedding = new Array(1536).fill(0.1);
-
-            const mockResponse = {
-                data: [{
-                    embedding: mockEmbedding
-                }]
-            };
-
-            mockEmbeddingsCreate.mockResolvedValue(mockResponse);
-
-            const embedding = await model.generateEmbedding(text);
             
-            expect(Array.isArray(embedding)).toBe(true);
-            expect(embedding.length).toBe(1536);
+            await expect(model.generateEmbedding(text)).rejects.toThrow('文本内容不能为空');
         });
     });
 
     describe('error handling', () => {
         it('should handle chat API errors', async () => {
-            const messages = [{ role: 'user', content: '测试' }];
+            const messages = ['用户：测试'];
             
             mockCreate.mockRejectedValue(new Error('API Error'));
 

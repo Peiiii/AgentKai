@@ -68,6 +68,9 @@ export function validateConfig(config: Config): Config {
   // 验证决策配置
   validateDecisionConfig(config.decisionConfig);
   
+  // 验证应用配置
+  validateAppConfig(config.appConfig);
+  
   return config;
 }
 
@@ -76,7 +79,13 @@ export function validateConfig(config: Config): Config {
  */
 function validateModelConfig(config: ModelConfig): void {
   if (!config.apiKey) {
-    throw new ConfigValidationError('API密钥不能为空');
+    throw new ConfigValidationError(
+      'API密钥不能为空。请按照以下步骤设置:\n' +
+      '1. 运行 "agentkai config --init" 创建配置文件\n' +
+      '2. 运行 "agentkai config --edit" 编辑配置文件\n' +
+      '3. 在配置文件中设置 AI_API_KEY=您的API密钥\n' +
+      '或者直接运行 "agentkai config --set AI_API_KEY 您的API密钥"'
+    );
   }
   
   if (!config.model) {
@@ -131,6 +140,27 @@ function validateDecisionConfig(config: DecisionConfig): void {
   
   if (config.maxReasoningSteps <= 0) {
     throw new ConfigValidationError('最大推理步骤必须大于0');
+  }
+}
+
+/**
+ * 验证应用配置
+ */
+function validateAppConfig(config: any): void {
+  if (!config) {
+    throw new ConfigValidationError('应用配置不能为空');
+  }
+
+  if (!config.name) {
+    throw new ConfigValidationError('应用名称不能为空');
+  }
+
+  if (!config.version) {
+    throw new ConfigValidationError('应用版本不能为空');
+  }
+
+  if (!config.defaultLanguage) {
+    throw new ConfigValidationError('默认语言不能为空');
   }
 }
 
@@ -196,8 +226,8 @@ AI_API_KEY=
 AI_MODEL_NAME=qwen-max-latest
 AI_MAX_TOKENS=2000
 AI_TEMPERATURE=0.7
-AI_BASE_URL=https://dashscope.aliyuncs.com/api/v1
-AI_EMBEDDING_MODEL=text-embedding-v1
+AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+AI_EMBEDDING_MODEL=text-embedding-v3
 
 # 记忆系统配置
 MEMORY_MAX_SIZE=1000
