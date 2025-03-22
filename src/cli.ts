@@ -206,7 +206,13 @@ async function createOrEditConfig(): Promise<void> {
 }
 
 // 验证配置并处理错误 - 返回一个Promise
-async function validateAndHandleConfigErrors(): Promise<boolean> {
+async function validateAndHandleConfigErrors(skipForConfigCommand = false): Promise<boolean> {
+    // 如果是配置命令并设置跳过验证，则直接返回true
+    if (skipForConfigCommand) {
+        logger.debug('配置命令跳过验证');
+        return true;
+    }
+    
     try {
         validateConfig(config);
         logger.debug('配置验证通过');
@@ -264,24 +270,12 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
                         console.log('您可以稍后运行 "agentkai config --init" 初始化配置。');
                     }
                     
-                    // 配置完成后退出程序，无论用户是否配置成功
-                    console.log('\n配置流程已完成。再次运行命令以使用新配置。');
-                    process.exit(0);
-                } catch (error) {
-                    logger.error('配置流程出错:', error);
-                    process.exit(1);
-                } finally {
-                    // 确保进程状态正常
-                    process.stdin.pause();
+                    return false;
+                } catch (promptErr) {
+                    logger.error('用户交互错误', promptErr);
+                    return false;
                 }
-                
-                // 这行代码永远不会执行到，但需要满足TypeScript类型检查
-                return false;
-            } else {
-                process.exit(1);
             }
-        } else {
-            process.exit(1);
         }
         
         return false;
@@ -464,7 +458,7 @@ async function getAISystem(): Promise<AISystem> {
   您可以通过设置 APP_DATA_PATH 环境变量或在配置文件中设置来自定义数据存储位置。
   例如: agentkai config --set APP_DATA_PATH /path/to/your/data
         `)
-        .action(async (options, command) => {
+        .action(async (options) => {
             try {
                 // 如果指定了debug选项，临时设置日志级别为DEBUG
                 if (options.debug) {
@@ -560,69 +554,10 @@ async function getAISystem(): Promise<AISystem> {
                     });
                 }
                 
-                // 获取指定配置项
-                if (options.get) {
-                    const key = options.get.toUpperCase();
-                    const value = process.env[key];
-                    if (value !== undefined) {
-                        console.log(`${key}=${value}`);
-                    } else {
-                        console.log(`未找到配置项: ${key}`);
-                    }
+                // 对于其他配置命令，需要验证配置
+                if (!(await validateAndHandleConfigErrors(false))) {
+                    console.log('请先使用 "agentkai config --init" 和 "agentkai config --edit" 设置正确的配置。');
                     return;
-                }
-                
-                // 设置配置项
-                if (options.set) {
-                    const key = options.set.toUpperCase();
-                    const value = command.args[0];
-                    if (!value) {
-                        console.log('错误: 缺少值参数。用法: agentkai config --set KEY VALUE');
-                        return;
-                    }
-                    const result = saveConfig({ [key]: value });
-                    if (result) {
-                        console.log(`已设置 ${key}=${value}`);
-                    } else {
-                        console.log('设置配置项失败');
-                    }
-                    return;
-                }
-                
-                // 默认显示所有配置
-                if (!options.path && !options.init && !options.edit && !options.get && !options.set) {
-                    // 获取所有环境变量
-                    const allEnvVars = process.env;
-                    
-                    // 定义要显示的配置类别
-                    const categories = [
-                        { prefix: 'AI_', title: 'AI模型配置' },
-                        { prefix: 'MEMORY_', title: '记忆系统配置' },
-                        { prefix: 'DECISION_', title: '决策系统配置' }
-                    ];
-                    
-                    // 打印配置
-                    categories.forEach(category => {
-                        const categoryVars = Object.entries(allEnvVars)
-                            .filter(([key]) => key.startsWith(category.prefix))
-                            .sort(([a], [b]) => a.localeCompare(b));
-                        
-                        if (categoryVars.length > 0) {
-                            console.log(`\n${category.title}:`);
-                            categoryVars.forEach(([key, value]) => {
-                                // 如果是API密钥，则隐藏部分内容
-                                if (key.includes('API_KEY') && value) {
-                                    const hiddenValue = value.substring(0, 4) + '*'.repeat(Math.max(value.length - 8, 0)) + (value.length > 4 ? value.substring(value.length - 4) : '');
-                                    console.log(`  ${key}=${hiddenValue}`);
-                                } else {
-                                    console.log(`  ${key}=${value || ''}`);
-                                }
-                            });
-                        }
-                    });
-                    
-                    console.log('\n提示: 使用 "agentkai config --init" 创建默认配置文件');
-                    console.log('提示: 使用 "agentkai config --edit" 编辑配置文件');
                 }
             } catch (error) {
                 const wrappedError = wrapError(error, '配置管理命令执行失败');
