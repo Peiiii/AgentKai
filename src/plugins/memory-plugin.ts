@@ -1,136 +1,256 @@
-import { AISystem } from '../core/AISystem';
 import { MemorySystem } from '../memory/MemorySystem';
-import { ToolRegistration } from '../services/tools';
-import { Memory } from '../types';
+import { MemoryType } from '../types';
 import { Logger } from '../utils/logger';
+
+// 记忆插件工具函数定义
+type MemoryTool = {
+  name: string;
+  description: string;
+  parameters: any[];
+  handler: (params: any) => Promise<any>;
+};
 
 /**
  * 记忆管理工具插件，提供记忆相关功能
  */
 export class MemoryPlugin {
-  private logger: Logger;
   private memorySystem: MemorySystem;
+  private logger: Logger;
 
-  constructor(aiSystem: AISystem) {
+  constructor(memorySystem: MemorySystem) {
+    this.memorySystem = memorySystem;
     this.logger = new Logger('MemoryPlugin');
-    this.memorySystem = aiSystem.getMemorySystem();
   }
 
+  /**
+   * 获取插件名称
+   * @returns 插件名称
+   */
   getName(): string {
-    return 'MemoryPlugin';
+    return 'memory';
   }
 
   /**
-   * 获取所有记忆工具注册项
+   * 获取该插件提供的工具
+   * @returns 工具配置数组
    */
-  getTools(): ToolRegistration[] {
+  getTools(): MemoryTool[] {
     return [
-      this.createAddMemoryToolRegistration(),
-      this.createSearchMemoriesToolRegistration()
-    ];
-  }
-
-  /**
-   * 创建添加记忆工具
-   */
-  private createAddMemoryToolRegistration(): ToolRegistration {
-    return {
-      name: 'add_memory',
-      description: '添加记忆到长期记忆系统',
-      parameters: {
-        type: 'object',
-        properties: {
-          content: {
+      {
+        name: 'addMemory',
+        description: '添加新的记忆到长期记忆',
+        parameters: [
+          {
+            name: 'content',
             type: 'string',
-            description: '记忆内容'
+            description: '记忆内容',
+            required: true
           },
-          importance: {
+          {
+            name: 'type',
+            type: 'string',
+            description: '记忆类型 (observation, reflection, conversation, fact, plan)',
+            required: false
+          },
+          {
+            name: 'importance',
             type: 'number',
-            description: '重要性 (0.0-1.0)'
-          },
-          type: {
-            type: 'string',
-            description: '记忆类型',
-            enum: ['fact', 'event', 'goal', 'decision']
+            description: '记忆重要性 (0-1)',
+            required: false
           }
-        },
-        required: ['content']
-      },
-      handler: async (args) => {
-        try {
-          const { content, importance = 0.8, type = 'fact' } = args;
+        ],
+        handler: async ({ content, type = 'observation', importance = 0.5 }) => {
+          this.logger.info('添加新记忆', { type, contentLength: content.length });
           
-          const preview = content.length > 50 
-            ? `${content.substring(0, 50)}...` 
-            : content;
+          // 验证记忆类型
+          let memoryType: MemoryType;
+          switch(type.toLowerCase()) {
+            case 'observation':
+              memoryType = MemoryType.OBSERVATION;
+              break;
+            case 'reflection':
+              memoryType = MemoryType.REFLECTION;
+              break;
+            case 'conversation':
+              memoryType = MemoryType.CONVERSATION;
+              break;
+            case 'fact':
+              memoryType = MemoryType.FACT;
+              break;
+            case 'plan':
+              memoryType = MemoryType.PLAN;
+              break;
+            default:
+              memoryType = MemoryType.OBSERVATION;
+          }
           
-          this.logger.info(`添加记忆: "${preview}"`);
-          this.logger.debug(`记忆类型: ${type}, 重要性: ${importance}`);
-          
-          await this.memorySystem.addMemory(content, {
-            type,
-            importance: parseFloat(importance.toString()) || 0.8,
-            timestamp: Date.now(),
-            source: 'memory_plugin'
+          // 创建记忆
+          await this.memorySystem.createMemory(content, memoryType, {
+            importance
           });
           
-          return { 
-            success: true, 
-            message: '记忆已成功添加到长期记忆系统' 
+          return {
+            success: true,
+            message: '记忆已添加'
           };
-        } catch (error) {
-          this.logger.error('添加记忆失败', error);
-          throw error;
         }
-      }
-    };
-  }
-
-  /**
-   * 创建搜索记忆工具
-   */
-  private createSearchMemoriesToolRegistration(): ToolRegistration {
-    return {
-      name: 'search_memories',
-      description: '在长期记忆系统中搜索记忆',
-      parameters: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: '搜索关键词或短语'
-          },
-          limit: {
-            type: 'integer',
-            description: '返回结果数量上限'
-          }
-        },
-        required: ['query']
       },
-      handler: async (args) => {
-        try {
-          const { query, limit = 5 } = args;
+      {
+        name: 'searchMemory',
+        description: '搜索记忆',
+        parameters: [
+          {
+            name: 'query',
+            type: 'string',
+            description: '搜索查询',
+            required: true
+          },
+          {
+            name: 'limit',
+            type: 'number',
+            description: '返回结果数量限制',
+            required: false
+          },
+          {
+            name: 'type',
+            type: 'string',
+            description: '记忆类型筛选',
+            required: false
+          }
+        ],
+        handler: async ({ query, limit = 5, type = null }) => {
+          this.logger.info('搜索记忆', { query, limit, type });
           
-          this.logger.info(`搜索记忆: "${query}"`);
+          let memories;
+          if (type) {
+            // 将字符串类型转换为枚举类型
+            let memoryType: MemoryType | undefined;
+            switch(type.toLowerCase()) {
+              case 'observation': memoryType = MemoryType.OBSERVATION; break;
+              case 'reflection': memoryType = MemoryType.REFLECTION; break;
+              case 'conversation': memoryType = MemoryType.CONVERSATION; break;
+              case 'fact': memoryType = MemoryType.FACT; break;
+              case 'plan': memoryType = MemoryType.PLAN; break;
+              default: memoryType = undefined;
+            }
+            
+            if (memoryType) {
+              // 先获取指定类型的记忆
+              const typeMemories = await this.memorySystem.getMemoriesByType(memoryType);
+              // 然后在内存中过滤包含查询关键词的记忆
+              memories = typeMemories
+                .filter(m => m.content.toLowerCase().includes(query.toLowerCase()))
+                .slice(0, limit);
+            } else {
+              memories = await this.memorySystem.searchMemoriesByContent(query, limit);
+            }
+          } else {
+            memories = await this.memorySystem.searchMemoriesByContent(query, limit);
+          }
           
-          const memories = await this.memorySystem.searchMemories(query, 
-            parseInt(limit.toString()) || 5);
+          const formattedMemories = memories.map(memory => {
+            return {
+              id: memory.id,
+              content: memory.content,
+              type: memory.type,
+              createdAt: memory.createdAt,
+              metadata: memory.metadata
+            };
+          });
           
-          this.logger.info(`找到 ${memories.length} 条相关记忆`);
+          return {
+            success: true,
+            count: formattedMemories.length,
+            memories: formattedMemories
+          };
+        }
+      },
+      {
+        name: 'getRecentMemories',
+        description: '获取最近的记忆',
+        parameters: [
+          {
+            name: 'limit',
+            type: 'number',
+            description: '返回结果数量限制',
+            required: false
+          },
+          {
+            name: 'type',
+            type: 'string',
+            description: '记忆类型筛选',
+            required: false
+          }
+        ],
+        handler: async ({ limit = 5, type = null }) => {
+          this.logger.info('获取最近记忆', { limit, type });
           
-          // 处理结果，只返回需要的字段
-          return memories.map((memory: Memory) => ({
-            id: memory.id,
-            content: memory.content,
-            type: memory.type,
-            timestamp: memory.timestamp,
-            similarity: memory.metadata?.similarity || 0
-          }));
-        } catch (error) {
-          this.logger.error('搜索记忆失败', error);
-          throw error;
+          let memoryType: MemoryType | undefined;
+          if (type) {
+            switch(type.toLowerCase()) {
+              case 'observation': memoryType = MemoryType.OBSERVATION; break;
+              case 'reflection': memoryType = MemoryType.REFLECTION; break;
+              case 'conversation': memoryType = MemoryType.CONVERSATION; break;
+              case 'fact': memoryType = MemoryType.FACT; break;
+              case 'plan': memoryType = MemoryType.PLAN; break;
+              default: memoryType = undefined;
+            }
+          }
+          
+          const memories = await this.memorySystem.getRecentMemories(limit, memoryType);
+          
+          const formattedMemories = memories.map(memory => {
+            return {
+              id: memory.id,
+              content: memory.content,
+              type: memory.type,
+              createdAt: memory.createdAt,
+              metadata: memory.metadata
+            };
+          });
+          
+          return {
+            success: true,
+            count: formattedMemories.length,
+            memories: formattedMemories
+          };
+        }
+      },
+      {
+        name: 'deleteMemory',
+        description: '删除指定ID的记忆',
+        parameters: [
+          {
+            name: 'id',
+            type: 'string',
+            description: '记忆ID',
+            required: true
+          }
+        ],
+        handler: async ({ id }) => {
+          this.logger.info('删除记忆', { id });
+          
+          const success = await this.memorySystem.deleteMemory(id);
+          return {
+            success,
+            message: success ? '记忆已删除' : '删除记忆失败，可能记忆不存在'
+          };
+        }
+      },
+      {
+        name: 'clearAllMemories',
+        description: '清空所有记忆（谨慎使用！）',
+        parameters: [],
+        handler: async () => {
+          this.logger.warn('清空所有记忆');
+          
+          await this.memorySystem.clearAllMemories();
+          return {
+            success: true,
+            message: '所有记忆已清空'
+          };
         }
       }
-    };
+    ];
   }
 } 

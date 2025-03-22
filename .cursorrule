@@ -16,3 +16,15 @@
 不要乱改代码，要分析原因，思考最佳实践再行动
 commit message 用英文
 每次改完后看看.whats-next，看看新的用户诉求
+
+更新流程
+
+- 提交代码
+- npm version patch/minor/major
+- npm publish
+
+
+代码原则
+- 职责分离，但避免过度合集
+- 可拓展性
+- 可维护性

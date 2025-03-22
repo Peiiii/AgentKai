@@ -42,11 +42,10 @@ export interface Context {
 export interface Memory {
     id: string;
     content: string;
-    type: 'event' | 'fact' | 'goal' | 'decision';
-    timestamp: number;
-    importance: number;
-    metadata: Record<string, any>;
+    type: MemoryType;
+    createdAt: number;
     embedding?: Vector;
+    metadata: Record<string, any>;
 }
 
 export interface MemoryQuery {
@@ -143,16 +142,15 @@ export enum GoalStatus {
     PENDING = 'pending'
 }
 
-// 存储提供者接口 - 重构为通用存储接口，不关心具体存储内容
+// 存储提供者接口 - 完全通用的存储接口，不关心集合或具体存储内容
 export interface StorageProvider {
     // 基础CRUD方法
-    save(collection: string, id: string, data: any): Promise<void>;
-    get(collection: string, id: string): Promise<any>;
-    delete(collection: string, id: string): Promise<void>;
-    list(collection: string): Promise<any[]>;
-    query(collection: string, filter?: Record<string, any>): Promise<any[]>;
-    clear(collection: string): Promise<void>;
-    clearAll(): Promise<void>;
+    save(id: string, data: any): Promise<void>;
+    get(id: string): Promise<any>;
+    delete(id: string): Promise<void>;
+    list(): Promise<any[]>;
+    query(filter?: Record<string, any>): Promise<any[]>;
+    clear(): Promise<void>;
 }
 
 // AI模型接口
@@ -173,6 +171,7 @@ export interface ModelConfig {
     apiBaseUrl: string;
     embeddingModel: string;
     embeddingBaseUrl: string;
+    embeddingDimensions: number;
 }
 
 // 记忆配置接口
@@ -207,4 +206,12 @@ export interface SystemResponse {
         completion: number;
     };
     toolResult?: ToolResult;
+}
+
+export enum MemoryType {
+    OBSERVATION = 'observation',
+    REFLECTION = 'reflection',
+    CONVERSATION = 'conversation',
+    FACT = 'fact',
+    PLAN = 'plan'
 } 

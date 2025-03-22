@@ -224,7 +224,7 @@ export class ChatCommand {
             this.logger.success(`找到 ${memories.length} 条相关记忆:`);
             
             memories.forEach((memory: Memory, index: number) => {
-                const date = new Date(memory.timestamp).toLocaleString();
+                const date = new Date(memory.createdAt).toLocaleString();
                 console.log(`\n${Colors.bright}${index + 1}.${Colors.reset} ${memory.content}`);
                 
                 // 显示相似度信息

@@ -71,7 +71,7 @@ export class MemoryCommand {
                 console.log(`记忆 ${index + 1}/${memories.length}:`);
                 console.log(`ID: ${memory.id}`);
                 console.log(`内容: ${memory.content}`);
-                console.log(`日期: ${new Date(memory.timestamp).toLocaleString()}`);
+                console.log(`日期: ${new Date(memory.createdAt).toLocaleString()}`);
                 console.log(`类型: ${memory.type}`);
                 
                 // 显示相似度信息，如果存在

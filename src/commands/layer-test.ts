@@ -176,7 +176,8 @@ async function initializeAISystem(configService: ConfigService): Promise<void> {
       temperature: modelConfig.temperature,
       apiBaseUrl: modelConfig.apiBaseUrl,
       embeddingModel: modelConfig.embeddingModel,
-      embeddingBaseUrl: modelConfig.embeddingBaseUrl
+      embeddingBaseUrl: modelConfig.embeddingBaseUrl,
+      embeddingDimensions: modelConfig.embeddingDimensions
     });
     
     // 创建配置

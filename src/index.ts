@@ -13,9 +13,6 @@ export { OpenAIModel } from './models/OpenAIModel';
 // 存储
 export { FileSystemStorage } from './storage/FileSystemStorage';
 
-// 工具系统
-export { ToolManager, DefaultToolCallFormat } from './tools/ToolManager';
-
 // 命令
 export { ChatCommand } from './commands/chat';
 export { GoalCommand } from './commands/goals';

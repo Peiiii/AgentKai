@@ -52,7 +52,7 @@ export class SystemAdapter {
     return limitedMemories.map(mem => ({
       id: mem.id,
       content: mem.content,
-      timestamp: mem.timestamp,
+      timestamp: mem.createdAt,
       importance: mem.metadata?.importance || 5,
       type: this.reverseConvertMemoryType(mem.type),
       similarity: mem.metadata?.similarity

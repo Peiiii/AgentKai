@@ -326,7 +326,7 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
             
             // 然后创建插件并添加
             const goalsPlugin = new GoalsPlugin(aiSystem);
-            const memoryPlugin = new MemoryPlugin(aiSystem);
+            const memoryPlugin = new MemoryPlugin(aiSystem.getMemorySystem());
             const basicToolsPlugin = new BasicToolsPlugin(aiSystem);
             
             // 使用插件管理器添加插件
@@ -551,7 +551,7 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
                 // 编辑配置文件
                 if (options.edit) {
                     const configFiles = findConfigFiles();
-                    let configPath;
+                    let configPath: string;
 
                     if (configFiles.length === 0) {
                         configPath = createDefaultUserConfig();

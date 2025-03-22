@@ -1,9 +1,11 @@
 import { GoalManager } from '../goals/GoalManager';
 import { MemorySystem } from '../memory/MemorySystem';
+import { EmbeddingProviderFactory } from '../memory/embedding/EmbeddingProviderFactory';
+import { HnswSearchProvider } from '../memory/embedding/HnswSearchProvider';
 import { ConfigService } from '../services/config';
 import { ToolService } from '../services/tools';
-import { FileSystemStorage } from '../storage/FileSystemStorage';
-import { AIModel, Config, Goal, GoalStatus, Memory, SystemResponse } from '../types';
+import { StorageFactory } from '../storage/StorageFactory';
+import { AIModel, Config, Goal, GoalStatus, Memory, MemoryType, SystemResponse } from '../types';
 import { ModelError, wrapError } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { PerformanceMonitor } from '../utils/performance';
@@ -24,12 +26,12 @@ export interface Plugin {
 export class AISystem {
     private memory: MemorySystem;
     private goals: GoalManager;
-    private storage: FileSystemStorage;
     private model: AIModel;
     private logger: Logger;
     private performance: PerformanceMonitor;
     private requestTimeoutMs: number = 30000; // 默认请求超时时间为30秒
     private config: Config | null = null;
+    private storageFactory: StorageFactory;
 
     // 新的组件
     private conversation: ConversationManager;
@@ -38,13 +40,42 @@ export class AISystem {
     private promptBuilder: PromptBuilder;
 
     constructor(config: Config, model: AIModel, plugins: Plugin[] = []) {
-        this.storage = new FileSystemStorage(config.appConfig.dataPath);
-        this.memory = new MemorySystem(config.memoryConfig, model, this.storage);
-        this.goals = new GoalManager(this.storage);
-        this.model = model;
         this.logger = new Logger('AISystem');
         this.performance = new PerformanceMonitor('AISystem');
         this.config = config;
+        this.model = model;
+        
+        // 创建存储工厂
+        const dataPath = config.appConfig.dataPath || 'data';
+        this.storageFactory = new StorageFactory(dataPath);
+        this.logger.info(`使用数据存储路径: ${dataPath}`);
+        
+        // 创建嵌入提供者 - 检查是否应该使用真实嵌入API
+        const useRealEmbeddings = config.memoryConfig?.importanceThreshold > 0 || false;
+        const embeddingType = useRealEmbeddings ? 'openai' : 'fake';
+        const embeddingProvider = EmbeddingProviderFactory.createProvider(embeddingType, config.modelConfig);
+        
+        // 创建内存存储
+        const memoryStorage = this.storageFactory.getMemoryStorage();
+        
+        // 创建HNSW搜索提供者
+        const searchProvider = new HnswSearchProvider(
+            memoryStorage,
+            embeddingProvider,
+            dataPath
+        );
+        
+        // 初始化记忆系统
+        this.memory = new MemorySystem(
+            memoryStorage,
+            embeddingProvider,
+            searchProvider // 传入searchProvider代替直接传入dataPath
+        );
+        
+        // 初始化目标系统
+        this.goals = new GoalManager(
+            this.storageFactory.getGoalStorage()
+        );
 
         // 初始化新组件
         this.conversation = new ConversationManager(10); // 保留最近10条消息
@@ -54,12 +85,17 @@ export class AISystem {
     }
 
     async initialize(): Promise<void> {
-        // 初始化记忆系统
-        await this.memory.initialize();
         // 初始化目标系统
         await this.goals.initialize();
         // 初始化插件管理器
         await this.pluginManager.initialize();
+        
+        // 初始化HNSW搜索提供者
+        if (this.memory.getSearchProvider()) {
+            await this.memory.getSearchProvider()?.initialize();
+        }
+        
+        this.logger.info('AI系统初始化完成');
     }
 
     getGoalManager(): GoalManager {
@@ -74,10 +110,8 @@ export class AISystem {
         // 检查是否是退出命令
         if (input.toLowerCase() === 'exit') {
             // 保存对话历史到记忆系统
-            await this.memory.addMemory('对话结束', {
-                type: 'conversation',
+            await this.memory.createMemory('对话结束', MemoryType.CONVERSATION, {
                 role: 'system',
-                timestamp: Date.now(),
                 history: this.conversation.getHistory(),
             });
             // 清空对话历史
@@ -96,7 +130,7 @@ export class AISystem {
             // 1. 获取相关记忆
             this.performance.start('searchMemories');
             const relevantMemories = await this.withTimeout(
-                this.memory.searchMemories(input),
+                this.memory.searchMemoriesByContent(input),
                 this.requestTimeoutMs,
                 '记忆搜索超时'
             );
@@ -152,9 +186,7 @@ export class AISystem {
             let totalPromptTokens = tokens.prompt;
             let totalCompletionTokens = tokens.completion;
 
-            const processedResponse = await this.responseProcessor.processToolsInResponse(
-                response
-            );
+            const processedResponse = await this.responseProcessor.processToolsInResponse(response);
             const finalOutput = processedResponse.modifiedText;
 
             // 如果有工具调用，递归处理会返回新生成的结果，需要更新token计数
@@ -228,26 +260,26 @@ export class AISystem {
         }
     }
 
-    async addMemory(content: string, metadata: Record<string, any>): Promise<void> {
-        await this.memory.addMemory(content, metadata);
+    async addMemory(content: string, metadata: Record<string, any> = {}): Promise<Memory> {
+        const type = metadata.type || MemoryType.OBSERVATION;
+        return await this.memory.createMemory(content, type as MemoryType, metadata);
     }
 
-    async searchMemories(query: string): Promise<Memory[]> {
+    async searchMemories(query: string, limit: number = 10): Promise<Memory[]> {
         this.logger.info('开始搜索记忆:', query);
-        const memories = await this.memory.searchMemories(query);
-        return memories;
+        return await this.memory.searchMemoriesByContent(query, limit);
     }
 
     async getAllMemories(): Promise<Memory[]> {
         return this.memory.getAllMemories();
     }
 
-    async deleteMemory(id: string): Promise<void> {
-        await this.memory.deleteMemory(id);
+    async deleteMemory(id: string): Promise<boolean> {
+        return await this.memory.deleteMemory(id);
     }
 
     async clearMemories(): Promise<void> {
-        await this.memory.clearMemories();
+        await this.memory.clearAllMemories();
     }
 
     async addGoal(
@@ -280,8 +312,8 @@ export class AISystem {
         return this.goals.getAllGoals();
     }
 
-    async deleteGoal(id: string): Promise<void> {
-        await this.goals.deleteGoal(id);
+    async deleteGoal(id: string): Promise<boolean> {
+        return await this.goals.deleteGoal(id);
     }
 
     // 清除当前对话历史

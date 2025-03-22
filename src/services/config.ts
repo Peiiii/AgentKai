@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Logger } from '../utils/logger';
+import { ModelConfig } from '../types';
 
 /**
  * 统一配置服务，负责管理所有配置
@@ -288,16 +289,17 @@ export class ConfigService {
    * 获取AI模型配置
    * @returns AI模型配置对象
    */
-  getAIModelConfig(): Record<string, any> {
+  getAIModelConfig(): ModelConfig {
     return {
-      model: this.get('ai.modelName', 'qwen-max-latest'),
-      apiKey: this.get('ai.apiKey', ''),
-      modelName: this.get('ai.modelName', 'qwen-max-latest'),
-      maxTokens: this.get('ai.maxTokens', 2000),
-      temperature: this.get('ai.temperature', 0.7),
-      apiBaseUrl: this.get('ai.apiBaseUrl', 'https://dashscope.aliyuncs.com/compatible-mode/v1'),
-      embeddingModel: this.get('ai.embeddingModel', 'text-embedding-v3'),
-      embeddingBaseUrl: this.get('ai.embeddingBaseUrl', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+      model: this.get('ai.modelName', 'qwen-max-latest')!,
+      apiKey: this.get('ai.apiKey', '')!,
+      modelName: this.get('ai.modelName', 'qwen-max-latest')!,
+      maxTokens: this.get('ai.maxTokens', 2000)!,
+      temperature: this.get('ai.temperature', 0.7)!,
+      apiBaseUrl: this.get('ai.apiBaseUrl', 'https://dashscope.aliyuncs.com/compatible-mode/v1')!,
+      embeddingModel: this.get('ai.embeddingModel', 'text-embedding-v3')!,
+      embeddingBaseUrl: this.get('ai.embeddingBaseUrl', 'https://dashscope.aliyuncs.com/compatible-mode/v1')!,
+      embeddingDimensions: this.get('ai.embeddingDimensions', 1024)!
     };
   }
   
