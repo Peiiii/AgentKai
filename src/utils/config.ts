@@ -1,5 +1,9 @@
 import { Config, ModelConfig, MemoryConfig, DecisionConfig } from '../types';
 import { AppError } from './errors';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import dotenv from 'dotenv';
 
 /**
  * 配置验证错误
@@ -127,5 +131,148 @@ function validateDecisionConfig(config: DecisionConfig): void {
   
   if (config.maxReasoningSteps <= 0) {
     throw new ConfigValidationError('最大推理步骤必须大于0');
+  }
+}
+
+/**
+ * 配置文件位置优先级
+ * 1. 当前目录的.env文件
+ * 2. 用户主目录下的.agentkai/config文件
+ * 3. 全局配置目录下的agentkai/config文件 (例如/etc/agentkai/config)
+ */
+
+// 全局配置目录路径
+const GLOBAL_CONFIG_DIR = process.platform === 'win32' 
+  ? path.join(process.env.ProgramData || 'C:\\ProgramData', 'agentkai')
+  : '/etc/agentkai';
+
+// 用户主目录配置路径
+const USER_CONFIG_DIR = path.join(os.homedir(), '.agentkai');
+
+/**
+ * 查找可用的配置文件位置
+ */
+export function findConfigFiles(): string[] {
+  const configFiles = [];
+  
+  // 1. 当前目录.env
+  const localEnvPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(localEnvPath)) {
+    configFiles.push(localEnvPath);
+  }
+  
+  // 2. 用户主目录配置
+  const userConfigPath = path.join(USER_CONFIG_DIR, 'config');
+  if (fs.existsSync(userConfigPath)) {
+    configFiles.push(userConfigPath);
+  }
+  
+  // 3. 全局配置
+  const globalConfigPath = path.join(GLOBAL_CONFIG_DIR, 'config');
+  if (fs.existsSync(globalConfigPath)) {
+    configFiles.push(globalConfigPath);
+  }
+  
+  return configFiles;
+}
+
+/**
+ * 创建默认的用户配置文件
+ */
+export function createDefaultUserConfig(): string {
+  if (!fs.existsSync(USER_CONFIG_DIR)) {
+    fs.mkdirSync(USER_CONFIG_DIR, { recursive: true });
+  }
+  
+  const userConfigPath = path.join(USER_CONFIG_DIR, 'config');
+  
+  // 如果配置文件不存在，创建默认配置
+  if (!fs.existsSync(userConfigPath)) {
+    const defaultConfig = `# AgentKai 默认配置文件
+# 由系统自动创建于 ${new Date().toLocaleString()}
+
+# AI模型配置
+AI_API_KEY=
+AI_MODEL_NAME=qwen-max-latest
+AI_MAX_TOKENS=2000
+AI_TEMPERATURE=0.7
+AI_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+AI_EMBEDDING_MODEL=text-embedding-v1
+
+# 记忆系统配置
+MEMORY_MAX_SIZE=1000
+MEMORY_SIMILARITY_THRESHOLD=0.6
+MEMORY_SHORT_TERM_CAPACITY=10
+MEMORY_IMPORTANCE_THRESHOLD=0.5
+
+# 决策系统配置
+DECISION_CONFIDENCE_THRESHOLD=0.7
+DECISION_MAX_RETRIES=3
+DECISION_MAX_REASONING_STEPS=5
+DECISION_MIN_CONFIDENCE_THRESHOLD=0.6
+`;
+    
+    fs.writeFileSync(userConfigPath, defaultConfig, 'utf8');
+  }
+  
+  return userConfigPath;
+}
+
+/**
+ * 加载所有可用的配置文件
+ * 按优先级从低到高加载，这样高优先级的配置可以覆盖低优先级的配置
+ */
+export function loadAllConfigs(): void {
+  const configFiles = findConfigFiles();
+  
+  // 如果没有找到配置文件，创建默认用户配置
+  if (configFiles.length === 0) {
+    const defaultConfigPath = createDefaultUserConfig();
+    configFiles.push(defaultConfigPath);
+  }
+  
+  // 按优先级从低到高加载配置
+  for (const file of configFiles.reverse()) {
+    dotenv.config({ path: file });
+  }
+}
+
+/**
+ * 保存配置到用户配置文件
+ */
+export function saveConfig(configData: Record<string, string>): boolean {
+  try {
+    // 确保用户配置目录存在
+    if (!fs.existsSync(USER_CONFIG_DIR)) {
+      fs.mkdirSync(USER_CONFIG_DIR, { recursive: true });
+    }
+    
+    const userConfigPath = path.join(USER_CONFIG_DIR, 'config');
+    
+    // 读取现有配置或创建新配置
+    let configContent = '';
+    if (fs.existsSync(userConfigPath)) {
+      configContent = fs.readFileSync(userConfigPath, 'utf8');
+    }
+    
+    // 更新配置内容
+    for (const [key, value] of Object.entries(configData)) {
+      // 检查是否已存在该配置项
+      const regex = new RegExp(`^${key}=.*`, 'm');
+      if (regex.test(configContent)) {
+        // 更新现有配置
+        configContent = configContent.replace(regex, `${key}=${value}`);
+      } else {
+        // 添加新配置
+        configContent += `\n${key}=${value}`;
+      }
+    }
+    
+    // 写入配置文件
+    fs.writeFileSync(userConfigPath, configContent.trim(), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('保存配置失败:', error);
+    return false;
   }
 } 

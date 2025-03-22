@@ -7,12 +7,17 @@ import { Config } from './types';
 import { ChatCommand } from './commands/chat';
 import { GoalCommand } from './commands/goals';
 import { MemoryCommand } from './commands/memory';
-import { validateConfig, parseNumber } from './utils/config';
+import { validateConfig, parseNumber, loadAllConfigs, findConfigFiles, createDefaultUserConfig, saveConfig } from './utils/config';
 import { Logger, LogLevel } from './utils/logger';
 import { wrapError } from './utils/errors';
+import inquirer from 'inquirer';
+import { spawn } from 'child_process';
 
 // 加载环境变量
 dotenv.config();
+
+// 加载所有配置文件（全局、用户级和本地）
+loadAllConfigs();
 
 // 创建命令行程序
 const program = new Command();
@@ -207,6 +212,164 @@ program
         } catch (error) {
             const wrappedError = wrapError(error, '记忆管理命令执行失败');
             logger.error('记忆管理命令执行失败', wrappedError);
+            process.exit(1);
+        }
+    });
+
+// 注册配置管理命令
+program
+    .command('config')
+    .description('配置管理')
+    .option('-l, --list', '列出当前配置')
+    .option('-g, --get <key>', '获取指定配置项')
+    .option('-s, --set <key> <value>', '设置配置项')
+    .option('-i, --init', '初始化用户配置文件')
+    .option('-p, --path', '显示配置文件路径')
+    .option('-e, --edit', '使用编辑器打开配置文件')
+    .option('-d, --debug', '使用DEBUG日志级别运行命令', false)
+    .action(async (options, command) => {
+        try {
+            // 如果指定了debug选项，临时设置日志级别为DEBUG
+            if (options.debug) {
+                const previousLevel = Logger.getGlobalLogLevel();
+                Logger.setGlobalLogLevel(LogLevel.DEBUG);
+                logger.info('临时设置日志级别为DEBUG');
+                
+                // 创建退出钩子，恢复之前的日志级别
+                process.on('exit', () => {
+                    Logger.setGlobalLogLevel(previousLevel);
+                });
+            }
+            
+            logger.debug('config命令', options);
+            
+            // 显示配置文件路径
+            if (options.path) {
+                const configFiles = findConfigFiles();
+                console.log('配置文件路径:');
+                if (configFiles.length === 0) {
+                    console.log('  未找到配置文件');
+                } else {
+                    configFiles.forEach(file => {
+                        console.log(`  ${file}`);
+                    });
+                }
+                return;
+            }
+            
+            // 初始化用户配置文件
+            if (options.init) {
+                const configPath = createDefaultUserConfig();
+                console.log(`已创建配置文件: ${configPath}`);
+                return;
+            }
+            
+            // 编辑配置文件
+            if (options.edit) {
+                const configFiles = findConfigFiles();
+                let configPath;
+                
+                if (configFiles.length === 0) {
+                    configPath = createDefaultUserConfig();
+                    console.log(`已创建配置文件: ${configPath}`);
+                } else if (configFiles.length === 1) {
+                    configPath = configFiles[0];
+                } else {
+                    // 如果有多个配置文件，让用户选择要编辑哪一个
+                    const answers = await inquirer.prompt([
+                        {
+                            type: 'list',
+                            name: 'configPath',
+                            message: '选择要编辑的配置文件:',
+                            choices: configFiles
+                        }
+                    ]);
+                    configPath = answers.configPath;
+                }
+                
+                // 使用系统默认编辑器打开配置文件
+                const editor = process.env.EDITOR || process.env.VISUAL || (process.platform === 'win32' ? 'notepad.exe' : 'vi');
+                
+                const child = spawn(editor, [configPath], {
+                    stdio: 'inherit',
+                    shell: true
+                });
+                
+                return new Promise((resolve) => {
+                    child.on('exit', () => {
+                        console.log(`配置文件已关闭: ${configPath}`);
+                        resolve(undefined);
+                    });
+                });
+            }
+            
+            // 获取指定配置项
+            if (options.get) {
+                const key = options.get.toUpperCase();
+                const value = process.env[key];
+                if (value !== undefined) {
+                    console.log(`${key}=${value}`);
+                } else {
+                    console.log(`未找到配置项: ${key}`);
+                }
+                return;
+            }
+            
+            // 设置配置项
+            if (options.set) {
+                const key = options.set.toUpperCase();
+                const value = command.args[0];
+                if (!value) {
+                    console.log('错误: 缺少值参数。用法: agentkai config --set KEY VALUE');
+                    return;
+                }
+                const result = saveConfig({ [key]: value });
+                if (result) {
+                    console.log(`已设置 ${key}=${value}`);
+                } else {
+                    console.log('设置配置项失败');
+                }
+                return;
+            }
+            
+            // 默认显示所有配置
+            if (!options.path && !options.init && !options.edit && !options.get && !options.set) {
+                // 获取所有环境变量
+                const allEnvVars = process.env;
+                
+                // 定义要显示的配置类别
+                const categories = [
+                    { prefix: 'AI_', title: 'AI模型配置' },
+                    { prefix: 'MEMORY_', title: '记忆系统配置' },
+                    { prefix: 'DECISION_', title: '决策系统配置' }
+                ];
+                
+                // 打印配置
+                categories.forEach(category => {
+                    const categoryVars = Object.entries(allEnvVars)
+                        .filter(([key]) => key.startsWith(category.prefix))
+                        .sort(([a], [b]) => a.localeCompare(b));
+                    
+                    if (categoryVars.length > 0) {
+                        console.log(`\n${category.title}:`);
+                        categoryVars.forEach(([key, value]) => {
+                            // 如果是API密钥，则隐藏部分内容
+                            if (key.includes('API_KEY') && value) {
+                                const hiddenValue = value.substring(0, 4) + '*'.repeat(Math.max(value.length - 8, 0)) + (value.length > 4 ? value.substring(value.length - 4) : '');
+                                console.log(`  ${key}=${hiddenValue}`);
+                            } else {
+                                console.log(`  ${key}=${value || ''}`);
+                            }
+                        });
+                    }
+                });
+                
+                console.log('\n提示: 使用 "agentkai config --init" 创建默认配置文件');
+                console.log('提示: 使用 "agentkai config --edit" 编辑配置文件');
+            }
+        } catch (error) {
+            const wrappedError = wrapError(error, '配置管理命令执行失败');
+            logger.error('配置管理命令执行失败', wrappedError);
             process.exit(1);
         }
     });

@@ -50,12 +50,39 @@ npm run build
 
 ### 配置
 
-创建.env文件并设置以下环境变量，可参考.env.example：
+AgentKai支持多级配置管理，配置加载优先级（从高到低）：
+
+1. 当前目录的`.env`文件
+2. 用户主目录的`.agentkai/config`文件
+3. 系统全局配置（`/etc/agentkai/config`或Windows下的`%ProgramData%\agentkai\config`）
+
+首次使用时，可以通过以下命令创建默认配置：
+
+```bash
+# 创建默认用户配置文件
+agentkai config --init
+
+# 编辑配置文件
+agentkai config --edit
+```
+
+主要配置项：
 
 ```env
-# 基础配置
+# AI模型配置
 AI_API_KEY=your_api_key_here
 AI_MODEL_NAME=qwen-max-latest
+AI_MAX_TOKENS=2000
+AI_TEMPERATURE=0.7
+AI_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+AI_EMBEDDING_MODEL=text-embedding-v1
+
+# 记忆系统配置
+MEMORY_MAX_SIZE=1000
+MEMORY_SIMILARITY_THRESHOLD=0.6
+
+# 决策系统配置
+DECISION_CONFIDENCE_THRESHOLD=0.7
 ```
 
 ### 命令行使用
@@ -63,6 +90,14 @@ AI_MODEL_NAME=qwen-max-latest
 通过全局安装后可直接使用命令行工具：
 
 ```bash
+# 配置管理
+agentkai config                       # 显示当前配置
+agentkai config --init                # 初始化默认配置文件
+agentkai config --edit                # 编辑配置文件
+agentkai config --path                # 显示配置文件路径
+agentkai config --get AI_TEMPERATURE  # 获取特定配置项
+agentkai config --set AI_TEMPERATURE 0.8  # 设置配置项
+
 # 聊天模式
 agentkai chat
 
