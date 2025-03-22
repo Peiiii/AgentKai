@@ -134,13 +134,31 @@ export class AISystem {
             }
             
             // 处理可能的工具调用
+            this.performance.start('processToolCalls');
+            let totalPromptTokens = tokens.prompt;
+            let totalCompletionTokens = tokens.completion;
+            
             const processedResponse = await this.processToolsInResponse(response);
             const finalOutput = processedResponse.modifiedText;
             
+            // 如果有工具调用，递归处理会返回新生成的结果，需要更新token计数
+            if (processedResponse.toolCalled && processedResponse.extraTokens) {
+                totalPromptTokens += processedResponse.extraTokens.prompt || 0;
+                totalCompletionTokens += processedResponse.extraTokens.completion || 0;
+            }
+            
+            const finalTokens = {
+                prompt: totalPromptTokens,
+                completion: totalCompletionTokens,
+                total: totalPromptTokens + totalCompletionTokens
+            };
+            
+            this.performance.end('processToolCalls');
+            
             this.logger.info('Token 使用情况', {
-                prompt: tokens.prompt,
-                completion: tokens.completion,
-                total: tokens.prompt + tokens.completion
+                prompt: finalTokens.prompt,
+                completion: finalTokens.completion,
+                total: finalTokens.total
             });
             this.performance.end('generateResponse');
 
@@ -158,7 +176,7 @@ export class AISystem {
                 output: finalOutput.trim(),
                 relevantMemories,
                 activeGoals,
-                tokens,
+                tokens: finalTokens,
             };
         } catch (error) {
             this.performance.end('processInput'); // 确保即使出错也结束计时
@@ -235,9 +253,80 @@ export class AISystem {
     private async processToolsInResponse(response: string): Promise<{
         toolCalled: boolean;
         modifiedText: string;
+        extraTokens?: { prompt: number; completion: number };
     }> {
-        // 使用ToolManager处理工具调用
-        return this.tools.processToolCall(response);
+        // 检查响应中是否包含工具调用
+        const result = await this.tools.processToolCall(response);
+        
+        // 如果有工具调用
+        if (result.toolCalled) {
+            this.logger.info('检测到工具调用，将结果返回给AI进行后续处理');
+            
+            // 构建给AI的工具调用结果消息
+            const toolResultMessages = this.buildContextMessages([], []);
+            
+            // 添加工具调用结果
+            toolResultMessages.push(
+                '以下是你刚才调用的工具结果:',
+                result.resultText,
+                '\n请根据工具调用结果，决定是否需要：1. 继续调用其他工具；2. 修改工具参数重新调用；3. 直接回复用户。'
+            );
+            
+            try {
+                // 将工具调用结果发送回AI，让AI决定下一步操作
+                const toolResponseResult = await this.withTimeout(
+                    this.model.generateResponse(toolResultMessages),
+                    this.requestTimeoutMs * 2,
+                    '处理工具结果超时'
+                );
+                
+                // 记录额外的token使用情况
+                const extraTokens = {
+                    prompt: toolResponseResult.tokens.prompt,
+                    completion: toolResponseResult.tokens.completion
+                };
+                
+                // 检查AI的新响应中是否还有工具调用
+                const nextResult = await this.tools.processToolCall(toolResponseResult.response);
+                
+                // 如果AI继续调用工具，递归处理
+                if (nextResult.toolCalled) {
+                    this.logger.info('AI继续调用工具，递归处理');
+                    const recursiveResult = await this.processToolsInResponse(nextResult.modifiedText);
+                    
+                    // 合并token使用量
+                    return {
+                        toolCalled: true,
+                        modifiedText: recursiveResult.modifiedText,
+                        extraTokens: {
+                            prompt: extraTokens.prompt + (recursiveResult.extraTokens?.prompt || 0),
+                            completion: extraTokens.completion + (recursiveResult.extraTokens?.completion || 0)
+                        }
+                    };
+                }
+                
+                // 如果AI不再调用工具，返回最终回复
+                return {
+                    toolCalled: true,
+                    modifiedText: nextResult.modifiedText,
+                    extraTokens: extraTokens
+                };
+            } catch (error) {
+                this.logger.error('处理工具调用结果失败', error);
+                return {
+                    toolCalled: true,
+                    modifiedText: `抱歉，在处理工具结果时出现了错误。但工具已经执行完成，结果是：\n${result.resultText}\n\n我的回复是：`,
+                    extraTokens: { prompt: 0, completion: 0 } // 错误情况下，假设没有额外token消耗
+                };
+            }
+        }
+        
+        // 如果没有工具调用，返回原始响应
+        return {
+            toolCalled: false,
+            modifiedText: response,
+            extraTokens: { prompt: 0, completion: 0 } // 没有工具调用，没有额外token消耗
+        };
     }
 
     async addMemory(content: string, metadata: Record<string, any>): Promise<void> {
@@ -325,6 +414,10 @@ export class AISystem {
 - 只在需要时才使用工具
 - 添加记忆时，将重要信息保存到长期记忆
 - 使用工具时，严格遵循指定的格式
+- 工具调用后，你将看到工具执行结果，可以:
+  1. 根据结果决定是否调用其他工具
+  2. 根据结果修改参数重新调用同一工具
+  3. 基于结果直接给用户回复
 - 对于是否调用工具，使用以下判断标准:
   * 添加记忆: 当信息对未来对话有价值
   * 搜索记忆: 当需要查找历史相关信息

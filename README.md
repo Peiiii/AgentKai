@@ -75,7 +75,7 @@ AI_MODEL_NAME=qwen-max-latest
 AI_MAX_TOKENS=2000
 AI_TEMPERATURE=0.7
 AI_BASE_URL=https://dashscope.aliyuncs.com/api/v1
-AI_EMBEDDING_MODEL=text-embedding-v1
+AI_EMBEDDING_MODEL=text-embedding-v3
 
 # 记忆系统配置
 MEMORY_MAX_SIZE=1000
