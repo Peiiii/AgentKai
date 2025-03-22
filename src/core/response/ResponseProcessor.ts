@@ -1,4 +1,3 @@
-import { AIModel } from '../../types';
 import { Logger } from '../../utils/logger';
 import { ToolService } from '../../services/tools';
 
