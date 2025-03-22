@@ -86,6 +86,16 @@ const logger = new Logger('CLI');
 // 加载配置服务
 const configService = ConfigService.getInstance();
 
+// 初始化配置服务
+(async () => {
+  try {
+    await configService.initialize();
+    logger.debug('配置服务初始化完成');
+  } catch (error) {
+    logger.error('配置服务初始化失败', error);
+  }
+})();
+
 // 创建配置
 const config: Config = {
     modelConfig: configService.getAIModelConfig() as ModelConfig,
@@ -278,32 +288,41 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
     }
 }
 
+// 初始化AI系统
+let aiSystem: AISystem | null = null;
+
+async function getAISystem(): Promise<AISystem> {
+    // 确保ConfigService已经初始化完成
+    try {
+        await configService.initialize();
+        logger.debug('配置服务初始化已完成');
+    } catch (error: any) {
+        logger.error('配置服务初始化失败', error);
+        throw new Error('无法初始化配置服务: ' + error.message);
+    }
+
+    if (!aiSystem) {
+        const model = new OpenAIModel(config.modelConfig);
+        aiSystem = new AISystem(config, model);
+        try {
+            await aiSystem.initialize();
+            logger.info('系统初始化完成');
+            logger.debug('当前日志级别', { level: Logger.getGlobalLogLevelName() });
+        } catch (error) {
+            const wrappedError = wrapError(error, '系统初始化失败');
+            logger.error('系统初始化失败', wrappedError);
+            throw wrappedError;
+        }
+    }
+    return aiSystem;
+}
+
 // 使用自执行异步函数包裹主程序逻辑
 (async () => {
     // 执行配置验证
     const isConfigValid = await validateAndHandleConfigErrors();
     if (!isConfigValid) {
         process.exit(1);
-    }
-
-    // 初始化AI系统
-    let aiSystem: AISystem | null = null;
-
-    async function getAISystem(): Promise<AISystem> {
-        if (!aiSystem) {
-            const model = new OpenAIModel(config.modelConfig);
-            aiSystem = new AISystem(config, model);
-            try {
-                await aiSystem.initialize();
-                logger.info('系统初始化完成');
-                logger.debug('当前日志级别', { level: Logger.getGlobalLogLevelName() });
-            } catch (error) {
-                const wrappedError = wrapError(error, '系统初始化失败');
-                logger.error('系统初始化失败', wrappedError);
-                throw wrappedError;
-            }
-        }
-        return aiSystem;
     }
 
     // 注册聊天命令
