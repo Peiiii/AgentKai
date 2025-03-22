@@ -216,7 +216,4 @@ export interface SystemResponse {
         completion: number;
     };
     toolResult?: ToolResult;
-}
-
-// 删除不存在的导入
-// export * from './consciousness'; 
+} 

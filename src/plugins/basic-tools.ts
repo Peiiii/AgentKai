@@ -19,6 +19,10 @@ export class BasicToolsPlugin {
     this.adapter = new SystemAdapter(aiSystem);
   }
 
+  getName(): string {
+    return 'BasicToolsPlugin';
+  }
+
   /**
    * 获取所有基础工具注册项
    */

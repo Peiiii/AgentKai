@@ -1,38 +1,56 @@
 import { GoalManager } from '../goals/GoalManager';
 import { MemorySystem } from '../memory/MemorySystem';
+import { ConfigService } from '../services/config';
+import { ToolService } from '../services/tools';
 import { FileSystemStorage } from '../storage/FileSystemStorage';
-import { ToolManager } from '../tools/ToolManager';
-import { createGoalTools, createMemoryTools } from '../tools/basic';
 import { AIModel, Config, Goal, GoalStatus, Memory, SystemResponse } from '../types';
 import { ModelError, wrapError } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { PerformanceMonitor } from '../utils/performance';
-import { ToolService } from '../services/tools';
-import { ConfigService } from '../services/config';
+import { ConversationManager } from './conversation/ConversationManager';
+import { PluginManager } from './plugins/PluginManager';
+import { PromptBuilder } from './prompts/PromptBuilder';
+import { ResponseProcessor } from './response/ResponseProcessor';
 
+// 定义插件接口
+export interface Plugin {
+    getTools(): any[];
+    getName(): string;
+}
+
+/**
+ * AISystem作为核心协调类，负责整合和管理各个子系统
+ */
 export class AISystem {
     private memory: MemorySystem;
     private goals: GoalManager;
     private storage: FileSystemStorage;
     private model: AIModel;
-    private tools: ToolManager;
-    private conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
     private logger: Logger;
     private performance: PerformanceMonitor;
     private requestTimeoutMs: number = 30000; // 默认请求超时时间为30秒
     private config: Config | null = null;
 
-    constructor(config: Config, model: AIModel) {
+    // 新的组件
+    private conversation: ConversationManager;
+    private pluginManager: PluginManager;
+    private responseProcessor: ResponseProcessor;
+    private promptBuilder: PromptBuilder;
+
+    constructor(config: Config, model: AIModel, plugins: Plugin[] = []) {
         this.storage = new FileSystemStorage(config.appConfig.dataPath);
         this.memory = new MemorySystem(config.memoryConfig, model, this.storage);
         this.goals = new GoalManager(this.storage);
         this.model = model;
-
-        // 使用DefaultToolCallFormat初始化ToolManager
-        this.tools = new ToolManager();
         this.logger = new Logger('AISystem');
         this.performance = new PerformanceMonitor('AISystem');
         this.config = config;
+
+        // 初始化新组件
+        this.conversation = new ConversationManager(10); // 保留最近10条消息
+        this.pluginManager = new PluginManager(plugins);
+        this.responseProcessor = new ResponseProcessor(this.logger);
+        this.promptBuilder = new PromptBuilder(config);
     }
 
     async initialize(): Promise<void> {
@@ -40,30 +58,16 @@ export class AISystem {
         await this.memory.initialize();
         // 初始化目标系统
         await this.goals.initialize();
+        // 初始化插件管理器
+        await this.pluginManager.initialize();
+    }
 
-        // 注册工具
-        this.logger.info('注册工具...');
+    getGoalManager(): GoalManager {
+        return this.goals;
+    }
 
-        // 注册工具服务中的工具
-        const toolService = ToolService.getInstance();
-        
-        // 1. 首先注册BasicToolsPlugin中的工具
-        // 导入BasicToolsPlugin
-        const { BasicToolsPlugin } = await import('../plugins/basic-tools');
-        const basicTools = new BasicToolsPlugin(this);
-        toolService.registerTools(basicTools.getTools());
-        
-        // 2. 继续注册原有的工具
-        // 注册记忆相关工具
-        const memoryTools = createMemoryTools(this.memory);
-        this.tools.registerTools(memoryTools);
-
-        // 注册目标相关工具
-        const goalTools = createGoalTools(this.goals);
-        this.tools.registerTools(goalTools);
-
-        this.logger.info(`已注册 ${memoryTools.length + goalTools.length} 个工具`);
-        this.logger.info(`工具服务中已注册 ${toolService.getAllTools().length} 个工具`);
+    getMemorySystem(): MemorySystem {
+        return this.memory;
     }
 
     async processInput(input: string): Promise<SystemResponse> {
@@ -74,10 +78,10 @@ export class AISystem {
                 type: 'conversation',
                 role: 'system',
                 timestamp: Date.now(),
-                history: this.conversationHistory,
+                history: this.conversation.getHistory(),
             });
             // 清空对话历史
-            this.conversationHistory = [];
+            this.conversation.clear();
             return {
                 output: '再见！',
                 relevantMemories: [],
@@ -117,16 +121,16 @@ export class AISystem {
             // 3. 处理用户输入并生成回复
             this.performance.start('generateResponse');
 
-            // 先添加用户输入到对话历史
-            this.conversationHistory.push({ role: 'user', content: input });
-
-            // 保持最近的10轮对话
-            if (this.conversationHistory.length > 10) {
-                this.conversationHistory = this.conversationHistory.slice(-10);
-            }
+            // 添加用户输入到对话历史
+            this.conversation.addMessage('user', input);
 
             // 构建上下文
-            const messages = this.buildContextMessages(relevantMemories, activeGoals);
+            const messages = this.promptBuilder.buildContextMessages(
+                this.conversation.getHistory(),
+                relevantMemories,
+                activeGoals,
+                this.pluginManager.getAllTools()
+            );
 
             // 生成回复
             let response, tokens;
@@ -148,7 +152,9 @@ export class AISystem {
             let totalPromptTokens = tokens.prompt;
             let totalCompletionTokens = tokens.completion;
 
-            const processedResponse = await this.processToolsInResponse(response);
+            const processedResponse = await this.responseProcessor.processToolsInResponse(
+                response
+            );
             const finalOutput = processedResponse.modifiedText;
 
             // 如果有工具调用，递归处理会返回新生成的结果，需要更新token计数
@@ -173,7 +179,7 @@ export class AISystem {
             this.performance.end('generateResponse');
 
             // 添加AI回复到对话历史（使用处理后的输出）
-            this.conversationHistory.push({ role: 'assistant', content: finalOutput });
+            this.conversation.addMessage('assistant', finalOutput);
 
             // 不再自动添加记忆，由AI通过工具调用或用户手动添加
             this.logger.info('对话已存储到短期记忆，未自动添加到长期记忆');
@@ -220,199 +226,6 @@ export class AISystem {
         } finally {
             clearTimeout(timeoutId!);
         }
-    }
-
-    /**
-     * 构建发送给模型的上下文信息
-     */
-    private buildContextMessages(relevantMemories: Memory[], activeGoals: Goal[]): string[] {
-        const toolService = ToolService.getInstance();
-        const serviceTools = toolService.getAllTools();
-
-        // 按照新的设计重构上下文构建
-        return [
-            // 1. 系统设定 + AI自身角色定义
-            this.buildSystemPrompt(),
-
-            // 2. 当前所有活跃目标
-            '当前活跃目标：',
-            ...(activeGoals.length > 0
-                ? activeGoals.map(
-                      (g) => `- [${g.priority}] ${g.description} (进度: ${g.progress * 100}%)`
-                  )
-                : ['当前没有活跃目标。']),
-
-            // 3. 相关长期记忆
-            '相关长期记忆：',
-            ...(relevantMemories.length > 0
-                ? relevantMemories.slice(0, 5).map((m) => `- ${m.content}`)
-                : ['无相关长期记忆']),
-
-            // 4. 短期记忆（对话历史）
-            '当前对话历史：',
-            ...this.conversationHistory.map(
-                (msg) => `${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content}`
-            ),
-
-            // 5. 工具使用指导
-            this.tools.getToolGuide(),
-
-            // 6. 服务工具定义（新增）
-            '可用服务工具：',
-            ...(serviceTools.length > 0 
-                ? serviceTools.map(tool => {
-                    const paramDesc = tool.parameters
-                        ? `\n参数: ${JSON.stringify(tool.parameters, null, 2)}`
-                        : '';
-                    return `- ${tool.name}: ${tool.description}${paramDesc}`;
-                })
-                : ['无可用服务工具']),
-
-            // 7. 传统工具定义
-            '可用传统工具定义：',
-            ...this.tools.getFormattedToolDefinitions(),
-
-            // 8. 最后的指导
-            '请根据以上信息回答用户的问题。如需保存重要信息到长期记忆，请使用add_memory工具。',
-        ];
-    }
-
-    /**
-     * 处理响应中的工具调用
-     */
-    private async processToolsInResponse(response: string): Promise<{
-        toolCalled: boolean;
-        modifiedText: string;
-        extraTokens?: { prompt: number; completion: number };
-    }> {
-        // 首先尝试使用ToolService处理工具调用
-        const toolService = ToolService.getInstance();
-        const toolPattern = /\[\[(\w+)\((.*?)\)\]\]/g;
-        let toolCalled = false;
-        let modifiedText = response;
-        let match;
-        
-        // 检查是否有工具调用格式 [[工具名(参数)]]
-        while ((match = toolPattern.exec(response)) !== null) {
-            toolCalled = true;
-            const toolName = match[1];
-            const paramStr = match[2];
-            let params;
-            
-            try {
-                // 尝试解析参数
-                params = paramStr.includes(':') 
-                    ? JSON.parse(`{${paramStr}}`) 
-                    : { query: paramStr };
-                
-                this.logger.info(`检测到工具调用: ${toolName} 参数: ${JSON.stringify(params)}`);
-                
-                if (toolService.hasTool(toolName)) {
-                    // 执行工具
-                    const result = await toolService.executeTool(toolName, params);
-                    const resultText = JSON.stringify(result, null, 2);
-                    
-                    // 替换工具调用为结果
-                    modifiedText = modifiedText.replace(
-                        match[0],
-                        `工具调用结果:\n${resultText}`
-                    );
-                }
-            } catch (error) {
-                this.logger.error(`工具调用失败: ${toolName}`, error);
-                modifiedText = modifiedText.replace(
-                    match[0],
-                    `工具调用错误: ${error instanceof Error ? error.message : String(error)}`
-                );
-            }
-        }
-        
-        // 如果通过新格式已处理工具调用，则直接返回
-        if (toolCalled) {
-            return {
-                toolCalled,
-                modifiedText,
-                extraTokens: { prompt: 0, completion: 0 }
-            };
-        }
-        
-        // 否则回退到原有的工具调用处理方式
-        // 检查响应中是否包含原格式的工具调用
-        const result = await this.tools.processToolCall(response);
-
-        // 如果有工具调用
-        if (result.toolCalled) {
-            this.logger.info('检测到工具调用，将结果返回给AI进行后续处理');
-
-            // 构建给AI的工具调用结果消息
-            const toolResultMessages = this.buildContextMessages([], []);
-
-            // 添加工具调用结果
-            toolResultMessages.push(
-                '以下是你刚才调用的工具结果:',
-                result.resultText,
-                '\n请根据工具调用结果，决定是否需要：1. 继续调用其他工具；2. 修改工具参数重新调用；3. 直接回复用户。'
-            );
-
-            try {
-                // 将工具调用结果发送回AI，让AI决定下一步操作
-                const toolResponseResult = await this.withTimeout(
-                    this.model.generateResponse(toolResultMessages),
-                    this.requestTimeoutMs * 2,
-                    '处理工具结果超时'
-                );
-
-                // 记录额外的token使用情况
-                const extraTokens = {
-                    prompt: toolResponseResult.tokens.prompt,
-                    completion: toolResponseResult.tokens.completion,
-                };
-
-                // 检查AI的新响应中是否还有工具调用
-                const nextResult = await this.tools.processToolCall(toolResponseResult.response);
-
-                // 如果AI继续调用工具，递归处理
-                if (nextResult.toolCalled) {
-                    this.logger.info('AI继续调用工具，递归处理');
-                    const recursiveResult = await this.processToolsInResponse(
-                        nextResult.modifiedText
-                    );
-
-                    // 合并token使用量
-                    return {
-                        toolCalled: true,
-                        modifiedText: recursiveResult.modifiedText,
-                        extraTokens: {
-                            prompt: extraTokens.prompt + (recursiveResult.extraTokens?.prompt || 0),
-                            completion:
-                                extraTokens.completion +
-                                (recursiveResult.extraTokens?.completion || 0),
-                        },
-                    };
-                }
-
-                // 如果AI不再调用工具，返回最终回复
-                return {
-                    toolCalled: true,
-                    modifiedText: nextResult.modifiedText,
-                    extraTokens: extraTokens,
-                };
-            } catch (error) {
-                this.logger.error('处理工具调用结果失败', error);
-                return {
-                    toolCalled: true,
-                    modifiedText: `抱歉，在处理工具结果时出现了错误。但工具已经执行完成，结果是：\n${result.resultText}\n\n我的回复是：`,
-                    extraTokens: { prompt: 0, completion: 0 }, // 错误情况下，假设没有额外token消耗
-                };
-            }
-        }
-
-        // 如果没有工具调用，返回原始响应
-        return {
-            toolCalled: false,
-            modifiedText: response,
-            extraTokens: { prompt: 0, completion: 0 }, // 没有工具调用，没有额外token消耗
-        };
     }
 
     async addMemory(content: string, metadata: Record<string, any>): Promise<void> {
@@ -474,58 +287,8 @@ export class AISystem {
     // 清除当前对话历史
     async clearCurrentConversation(): Promise<void> {
         this.logger.info('清除当前对话历史');
-        this.conversationHistory = [];
+        this.conversation.clear();
         this.logger.info('对话历史已清除');
-    }
-
-    private buildSystemPrompt(): string {
-        const aiName = this.config?.appConfig?.name || '凯';
-
-        return `你是一个名为"${aiName}"的AI助手，负责帮助用户完成任务。
-
-请遵循以下规则：
-1. 保持回应简洁明了，直接给出答案
-2. 不要包含分析过程，除非用户特别要求
-3. 如果遇到不确定的情况，简单说明即可
-4. 注意上下文连续性，参考对话历史回答问题
-5. 根据需要使用工具，特别是保存重要信息到长期记忆
-6. 如果用户输入不明确，主动询问细节
-7. 当用户询问你的名字时，你应该回答你的名字是"${aiName}"
-
-记忆管理：
-- 短期记忆：当前对话历史，自动管理
-- 长期记忆：重要信息，需要通过add_memory工具主动添加
-
-工具使用指南：
-- 只在需要时才使用工具
-- 添加记忆时，将重要信息保存到长期记忆
-- 使用工具时，有两种方式可以调用:
-
-方式一（推荐）：使用[[工具名(参数)]]的格式
-例如：
-  [[search_memories(query: "记忆内容")]]
-  [[add_memory(content: "记忆内容", importance: 8)]]
-  [[web_search(query: "搜索内容")]]
-简单参数也可以直接传递：
-  [[search_memories("记忆内容")]]
-
-方式二：使用传统工具调用格式
-- 工具调用后，你将看到工具执行结果，可以:
-  1. 根据结果决定是否调用其他工具
-  2. 根据结果修改参数重新调用同一工具
-  3. 基于结果直接给用户回复
-
-工具选择标准:
-- 添加记忆: 当信息对未来对话有价值
-- 搜索记忆: 当需要查找历史相关信息
-- 添加目标: 当用户明确表达长期目标
-- 更新目标: 当目标有明确进展
-- 网络搜索: 当需要查找实时信息
-
-当前系统状态：
-- 对话历史已激活（保留最近10轮对话）
-- 长期记忆系统已激活（需主动添加和检索）
-- 目标系统已激活（所有活跃目标可见）`;
     }
 
     getToolService(): ToolService {

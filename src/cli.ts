@@ -1,29 +1,32 @@
 #!/usr/bin/env node
+import { spawn } from 'child_process';
 import { Command } from 'commander';
 import dotenv from 'dotenv';
-import { OpenAIModel } from './models/OpenAIModel';
-import { AISystem } from './core/AISystem';
-import { Config, ModelConfig, MemoryConfig, DecisionConfig, AppConfig } from './types';
+import fs from 'fs';
+import inquirer from 'inquirer';
+import * as os from 'os';
+import * as path from 'path';
 import { ChatCommand } from './commands/chat';
 import { GoalCommand } from './commands/goals';
-import { MemoryCommand } from './commands/memory';
-import {
-    validateConfig,
-    loadAllConfigs,
-    findConfigFiles,
-    createDefaultUserConfig,
-    saveConfig,
-    ConfigValidationError,
-} from './utils/config';
-import { Logger, LogLevel } from './utils/logger';
-import { wrapError } from './utils/errors';
-import inquirer from 'inquirer';
-import { spawn } from 'child_process';
-import * as path from 'path';
-import * as os from 'os';
-import fs from 'fs';
 import { createLayerTestCommand } from './commands/layer-test';
+import { MemoryCommand } from './commands/memory';
+import { AISystem } from './core/AISystem';
+import { OpenAIModel } from './models/OpenAIModel';
+import { BasicToolsPlugin } from './plugins/basic-tools';
+import { GoalsPlugin } from './plugins/goals-plugin';
+import { MemoryPlugin } from './plugins/memory-plugin';
 import { ConfigService } from './services/config';
+import { AppConfig, Config, DecisionConfig, MemoryConfig, ModelConfig } from './types';
+import {
+    ConfigValidationError,
+    createDefaultUserConfig,
+    findConfigFiles,
+    loadAllConfigs,
+    saveConfig,
+    validateConfig,
+} from './utils/config';
+import { wrapError } from './utils/errors';
+import { Logger, LogLevel } from './utils/logger';
 
 // 加载环境变量
 dotenv.config();
@@ -318,7 +321,20 @@ async function validateAndHandleConfigErrors(): Promise<boolean> {
     async function getAISystem(): Promise<AISystem> {
         if (!aiSystem) {
             const model = new OpenAIModel(config.modelConfig);
-            aiSystem = new AISystem(config, model);
+            // 先创建AISystem实例，没有插件
+            aiSystem = new AISystem(config, model, []);
+            
+            // 然后创建插件并添加
+            const goalsPlugin = new GoalsPlugin(aiSystem);
+            const memoryPlugin = new MemoryPlugin(aiSystem);
+            const basicToolsPlugin = new BasicToolsPlugin(aiSystem);
+            
+            // 使用插件管理器添加插件
+            const pluginManager = aiSystem['pluginManager']; // 直接访问私有属性
+            pluginManager.addPlugin(goalsPlugin);
+            pluginManager.addPlugin(memoryPlugin);
+            pluginManager.addPlugin(basicToolsPlugin);
+            
             try {
                 await aiSystem.initialize();
                 logger.info('系统初始化完成');

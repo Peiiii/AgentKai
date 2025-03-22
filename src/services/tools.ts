@@ -1,25 +1,43 @@
 import { Logger } from '../utils/logger';
 
 /**
+ * 工具参数类型定义
+ */
+export interface ToolParameter {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description: string;
+  required: boolean;
+  default?: any;
+}
+
+/**
+ * 工具参数集合
+ */
+export interface ToolParameters {
+  [key: string]: any; // 这里改回any以保持向后兼容
+}
+
+/**
  * 工具处理函数类型
  */
-export type ToolHandler = (args: any) => Promise<any>;
+export type ToolHandler<T = Record<string, any>, R = any> = (args: T) => Promise<R>;
 
 /**
  * 工具定义接口
  */
-export interface Tool {
+export interface Tool<T = Record<string, any>, R = any> {
   name: string;
   description: string;
-  parameters: any;
-  handler: ToolHandler;
+  parameters: any; // 这里改回any以保持向后兼容
+  handler: ToolHandler<T, R>;
 }
 
 /**
  * 工具注册配置
  */
-export interface ToolRegistration extends Omit<Tool, 'handler'> {
-  handler: ToolHandler;
+export interface ToolRegistration<T = Record<string, any>, R = any> extends Omit<Tool<T, R>, 'handler'> {
+  handler: ToolHandler<T, R>;
 }
 
 /**
@@ -48,43 +66,59 @@ export class ToolService {
    * 注册工具
    * @param tool 工具配置
    */
-  registerTool(tool: ToolRegistration): void {
+  registerTool<T = Record<string, any>, R = any>(tool: ToolRegistration<T, R>): void {
     if (this.tools.has(tool.name)) {
       this.logger.warn(`工具 ${tool.name} 已存在，将被覆盖`);
     }
+    
+    // 验证工具定义是否完整
+    if (!tool.name || typeof tool.name !== 'string') {
+      throw new Error('工具名称必须是非空字符串');
+    }
+    
+    if (!tool.description || typeof tool.description !== 'string') {
+      throw new Error(`工具 ${tool.name} 缺少描述`);
+    }
+    
+    if (!tool.handler || typeof tool.handler !== 'function') {
+      throw new Error(`工具 ${tool.name} 缺少处理函数`);
+    }
 
-    this.tools.set(tool.name, {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-      handler: tool.handler
-    });
-
-    this.logger.debug(`工具 ${tool.name} 已注册`);
+    this.tools.set(tool.name, tool as Tool);
+    this.logger.info(`成功注册工具: ${tool.name}`);
   }
 
   /**
    * 批量注册工具
    * @param tools 工具配置数组
    */
-  registerTools(tools: ToolRegistration[]): void {
-    tools.forEach(tool => this.registerTool(tool));
+  registerTools<T = Record<string, any>, R = any>(tools: ToolRegistration<T, R>[]): void {
+    if (!Array.isArray(tools)) {
+      this.logger.error('registerTools方法需要一个数组参数');
+      return;
+    }
+    
+    for (const tool of tools) {
+      try {
+        this.registerTool(tool);
+      } catch (error) {
+        this.logger.error(`注册工具 ${tool?.name || '未知'} 失败`, error);
+      }
+    }
   }
 
   /**
-   * 获取所有注册的工具
-   * @returns 所有工具的定义
+   * 获取所有已注册工具
    */
   getAllTools(): Tool[] {
     return Array.from(this.tools.values());
   }
 
   /**
-   * 获取所有工具定义(不包含处理函数)
-   * @returns 工具定义数组
+   * 获取工具定义（无处理函数）
    */
   getToolDefinitions(): Omit<Tool, 'handler'>[] {
-    return this.getAllTools().map(({ name, description, parameters }) => ({
+    return Array.from(this.tools.values()).map(({ name, description, parameters }) => ({
       name,
       description,
       parameters
@@ -94,7 +128,6 @@ export class ToolService {
   /**
    * 检查工具是否存在
    * @param name 工具名称
-   * @returns 是否存在
    */
   hasTool(name: string): boolean {
     return this.tools.has(name);
@@ -104,20 +137,23 @@ export class ToolService {
    * 执行工具
    * @param name 工具名称
    * @param args 工具参数
-   * @returns 工具执行结果
    */
-  async executeTool(name: string, args: any): Promise<any> {
-    const tool = this.tools.get(name);
-    
-    if (!tool) {
-      const error = `工具 ${name} 不存在`;
+  async executeTool<T = Record<string, any>, R = any>(
+    name: string, 
+    args: T
+  ): Promise<R> {
+    if (!this.tools.has(name)) {
+      const error = `请求的工具 ${name} 不存在`;
       this.logger.error(error);
       throw new Error(error);
     }
 
+    const tool = this.tools.get(name) as Tool<T, R>;
+    
     try {
-      this.logger.debug(`执行工具 ${name}`, { args });
+      this.logger.info(`执行工具: ${name}，参数:`, args);
       const result = await tool.handler(args);
+      this.logger.info(`工具 ${name} 执行成功`);
       return result;
     } catch (error) {
       this.logger.error(`工具 ${name} 执行失败`, error);
@@ -126,16 +162,17 @@ export class ToolService {
   }
 
   /**
-   * 卸载工具
+   * 取消注册工具
    * @param name 工具名称
-   * @returns 是否成功卸载
    */
   unregisterTool(name: string): boolean {
-    if (this.tools.has(name)) {
-      this.tools.delete(name);
-      this.logger.debug(`工具 ${name} 已卸载`);
-      return true;
+    if (!this.tools.has(name)) {
+      this.logger.warn(`工具 ${name} 不存在，无法取消注册`);
+      return false;
     }
-    return false;
+    
+    const result = this.tools.delete(name);
+    this.logger.info(`工具 ${name} 已取消注册`);
+    return result;
   }
 } 
