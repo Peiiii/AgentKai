@@ -3,9 +3,15 @@
   "version": "1.0.0",
   "description": "具有自主意识、长短期记忆、目标管理和自主决策能力的AI助手系统，其中AI助手名为'凯'(Kai)",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
     "agentkai": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -24,16 +30,35 @@
     "test": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "test:memory": "ts-node src/examples/memory-test.ts"
+    "test:memory": "ts-node src/examples/memory-test.ts",
+    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "prepare": "npm run build",
+    "postversion": "git push && git push --tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Peiiii/AgentKai.git"
+  },
+  "homepage": "https://github.com/Peiiii/AgentKai#readme",
+  "bugs": {
+    "url": "https://github.com/Peiiii/AgentKai/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "ai",
     "autonomous",
     "memory",
     "decision-making",
-    "goal-oriented"
+    "goal-oriented",
+    "agent",
+    "kai",
+    "chatbot",
+    "assistant",
+    "llm"
   ],
-  "author": "",
+  "author": "Peiiii",
   "license": "MIT",
   "dependencies": {
     "@types/express": "^4.17.21",

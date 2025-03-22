@@ -19,6 +19,27 @@
 - 命令行工具库 Commander.js
 - 异步处理和性能监控
 
+## 安装
+
+### 通过npm安装
+
+```bash
+# 全局安装（推荐用于命令行工具）
+npm install -g agentkai
+
+# 作为项目依赖安装
+npm install agentkai
+```
+
+### 源码安装
+
+```bash
+git clone https://github.com/Peiiii/agentkai.git
+cd agentkai
+npm install
+npm run build
+```
+
 ## 快速开始
 
 ### 环境要求
@@ -26,14 +47,6 @@
 - Node.js >= 16
 - TypeScript >= 4.5
 - npm >= 7
-
-### 安装
-
-```bash
-git clone https://github.com/yourusername/agentkai.git
-cd agentkai
-npm install
-```
 
 ### 配置
 
@@ -45,54 +58,104 @@ AI_API_KEY=your_api_key_here
 AI_MODEL_NAME=qwen-max-latest
 ```
 
-### 运行
+### 命令行使用
 
-命令行模式：
-```bash
-npm run cli
-```
+通过全局安装后可直接使用命令行工具：
 
-命令行工具使用：
 ```bash
 # 聊天模式
-npm run chat
+agentkai chat
 
 # 记忆管理
-npm run memory-list                  # 列出所有记忆
-npm run memory-add "这是新记忆内容"    # 添加新记忆
-npm run memory-search "搜索关键词"    # 搜索记忆
-npm run memory-remove 123           # 删除指定ID的记忆
+agentkai memory --list                  # 列出所有记忆
+agentkai memory --add "这是新记忆内容"    # 添加新记忆
+agentkai memory --search "搜索关键词"    # 搜索记忆
+agentkai memory --remove 123           # 删除指定ID的记忆
 
 # 目标管理
-npm run goals-list                  # 列出所有目标
-npm run goals-add "完成项目文档"      # 添加新目标
-
-# 使用原始CLI(需要使用 -- 分隔符传递参数)
-npm run cli -- memory --list
-npm run cli -- goals --add "目标内容"
-npm run cli -- goals --progress 123 0.5
-npm run cli -- goals --status 123 completed
+agentkai goals --list                  # 列出所有目标
+agentkai goals --add "完成项目文档"      # 添加新目标
+agentkai goals --progress 123 0.5      # 更新目标进度
+agentkai goals --status 123 completed  # 更新目标状态
 
 # 设置日志级别
-npm run cli -- --log-level debug chat            # 全局设置DEBUG级别
-npm run cli -- chat --debug                      # 仅对chat命令使用DEBUG级别
-npm run cli -- --log-level warn memory --list    # 使用WARN级别（减少输出）
-npm run cli -- --log-level silent goals --list   # 静默模式（仅输出命令结果）
+agentkai --log-level debug chat           # 全局设置DEBUG级别
+agentkai chat --debug                     # 仅对chat命令使用DEBUG级别
+agentkai --log-level warn memory --list   # 使用WARN级别（减少输出）
+agentkai --log-level silent goals --list  # 静默模式（仅输出命令结果）
 ```
 
-### 日志级别
+### 作为库使用
 
-系统支持以下日志级别，从详细到简洁排序：
+您可以在自己的项目中使用AgentKai作为库：
 
-- `debug`: 显示所有日志，包括详细的调试信息
-- `info`: 显示信息、警告和错误（默认）
-- `warn`: 仅显示警告和错误
-- `error`: 仅显示错误
-- `silent`: 不显示任何日志（仅显示命令结果）
+```javascript
+// ESM
+import { AISystem, OpenAIModel, Logger } from 'agentkai';
 
-可以通过两种方式设置日志级别：
-1. 全局选项: `--log-level <level>` (例如: `--log-level debug`)
-2. 命令特定选项: `--debug` (将日志级别设置为DEBUG)
+// CommonJS
+const { AISystem, OpenAIModel, Logger } = require('agentkai');
+
+// 初始化配置
+const config = {
+  modelConfig: {
+    apiKey: process.env.AI_API_KEY,
+    model: 'qwen-max-latest',
+    // 其他模型配置...
+  },
+  memoryConfig: {
+    // 记忆系统配置...
+  },
+  decisionConfig: {
+    // 决策系统配置...
+  }
+};
+
+// 使用示例
+async function main() {
+  // 设置日志级别
+  Logger.setGlobalLogLevel('info');
+  
+  // 初始化模型
+  const model = new OpenAIModel(config.modelConfig);
+  
+  // 创建AI系统
+  const ai = new AISystem(config, model);
+  await ai.initialize();
+  
+  // 处理用户输入
+  const response = await ai.processUserInput('你好，凯！');
+  console.log(response);
+}
+
+main().catch(console.error);
+```
+
+## 使用API
+
+AgentKai提供了多个核心组件，可以单独使用或组合使用：
+
+```javascript
+// 记忆系统
+import { MemorySystem } from 'agentkai';
+const memorySystem = new MemorySystem(config.memoryConfig);
+await memorySystem.initialize();
+await memorySystem.addMemory('这是一条重要记忆');
+
+// 目标管理
+import { GoalManager } from 'agentkai';
+const goalManager = new GoalManager();
+await goalManager.addGoal({
+  description: '完成项目文档',
+  priority: 0.8
+});
+
+// 日志系统
+import { Logger, LogLevel } from 'agentkai';
+const logger = new Logger('MyComponent');
+logger.info('系统初始化完成');
+logger.debug('调试信息', { detail: 'value' });
+```
 
 ## 项目结构
 
