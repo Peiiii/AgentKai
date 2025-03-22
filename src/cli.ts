@@ -508,14 +508,31 @@ async function getAISystem(): Promise<AISystem> {
                     return;
                 }
                 
-                // 初始化用户配置文件
+                // 初始化用户配置文件，直接执行，不需要验证配置
                 if (options.init) {
                     const configPath = createDefaultUserConfig();
                     console.log(`已创建配置文件: ${configPath}`);
+                    // 如果同时设置了edit选项，继续执行编辑
+                    if (options.edit) {
+                        // 使用系统默认编辑器打开配置文件
+                        const editor = configService.getEnv('EDITOR') || configService.getEnv('VISUAL') || (process.platform === 'win32' ? 'notepad.exe' : 'vi');
+                        
+                        const child = spawn(editor, [configPath], {
+                            stdio: 'inherit',
+                            shell: true
+                        });
+                        
+                        return new Promise((resolve) => {
+                            child.on('exit', () => {
+                                console.log(`配置文件已关闭: ${configPath}`);
+                                resolve(undefined);
+                            });
+                        });
+                    }
                     return;
                 }
                 
-                // 编辑配置文件
+                // 编辑配置文件，直接执行，不需要验证配置
                 if (options.edit) {
                     const configFiles = findConfigFiles();
                     let configPath;
