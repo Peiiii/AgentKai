@@ -26,7 +26,7 @@ export class AISystem {
     constructor(config: Config, model: AIModel) {
         this.storage = new FileSystemStorage(config.appConfig.dataPath);
         this.decision = new DecisionEngine(config.decisionConfig);
-        this.memory = new MemorySystem(config.memoryConfig, model);
+        this.memory = new MemorySystem(config.memoryConfig, model, this.storage);
         this.goals = new GoalManager(this.storage);
         this.model = model;
         
