@@ -194,29 +194,25 @@ logger.debug('调试信息', { detail: 'value' });
 
 ## 项目结构
 
-```
-src/
-├── core/           # 核心系统实现
-│   └── AISystem.ts # AI核心系统
-├── models/         # AI模型接口
-├── memory/         # 记忆管理系统
-├── goals/          # 目标管理系统
-├── decision/       # 决策引擎
-├── utils/          # 工具类
-│   ├── logger.ts   # 日志系统
-│   ├── errors.ts   # 错误处理
-│   └── performance.ts # 性能监控
-├── tools/          # 工具系统
-├── storage/        # 存储系统
-├── commands/       # 命令行命令
-├── types.ts        # 类型定义
-└── cli.ts          # 命令行入口
+本项目采用monorepo架构，包含以下主要包：
 
-docs/
-├── ARCHITECTURE.md # 架构设计
-├── CODE_IMPROVEMENTS.md # 代码改进记录
-└── REFACTORING.md # 重构计划
+- `@agentkai/core` - 核心功能，包含AI系统、记忆系统、目标管理等
+- `@agentkai/cli` - 命令行界面
+
+### 开发设置
+
+```bash
+# 安装依赖
+pnpm install
+
+# 构建所有包
+pnpm build
+
+# 运行CLI
+pnpm dev:cli
 ```
+
+要了解更多关于monorepo迁移的信息，请查看 [monorepo迁移计划](docs/monorepo-migration/plan.md) 和 [迁移进度](docs/monorepo-migration/progress.md)。
 
 ## 存储结构
 
