@@ -1,5 +1,14 @@
 # @agentkai/cli
 
+## 2.0.1
+
+### Patch Changes
+
+- fix imports
+- Updated dependencies
+    - @agentkai/core@2.0.1
+    - @agentkai/node@2.0.1
+
 ## 2.0.0
 
 ### Major Changes
