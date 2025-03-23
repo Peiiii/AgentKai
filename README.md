@@ -24,20 +24,38 @@
 ### 通过npm安装
 
 ```bash
-# 全局安装（推荐用于命令行工具）
-npm install -g agentkai
+# 全局安装CLI工具
+npm install -g @agentkai/cli
 
 # 作为项目依赖安装
-npm install agentkai
+# 核心功能
+npm install @agentkai/core
+
+# Node.js环境适配层（服务器端）
+npm install @agentkai/node
+
+# 浏览器环境适配层（前端）
+npm install @agentkai/browser
+
+# 全功能包（包含所有组件）
+npm install @agentkai/core @agentkai/node
 ```
 
 ### 源码安装
 
 ```bash
+# 克隆仓库
 git clone https://github.com/Peiiii/agentkai.git
 cd agentkai
-npm install
-npm run build
+
+# 安装依赖
+pnpm install
+
+# 构建所有包
+pnpm build
+
+# 全局链接CLI（开发测试用）
+pnpm link-global
 ```
 
 ## 快速开始
@@ -126,10 +144,12 @@ agentkai --log-level silent goals --list  # 静默模式（仅输出命令结果
 
 ```javascript
 // ESM
-import { AISystem, OpenAIModel, Logger } from 'agentkai';
+import { AISystem, Logger } from '@agentkai/core';
+import { OpenAIModel } from '@agentkai/node';
 
 // CommonJS
-const { AISystem, OpenAIModel, Logger } = require('agentkai');
+const { AISystem, Logger } = require('@agentkai/core');
+const { OpenAIModel } = require('@agentkai/node');
 
 // 初始化配置
 const config = {
@@ -172,13 +192,13 @@ AgentKai提供了多个核心组件，可以单独使用或组合使用：
 
 ```javascript
 // 记忆系统
-import { MemorySystem } from 'agentkai';
+import { MemorySystem } from '@agentkai/core';
 const memorySystem = new MemorySystem(config.memoryConfig);
 await memorySystem.initialize();
 await memorySystem.addMemory('这是一条重要记忆');
 
 // 目标管理
-import { GoalManager } from 'agentkai';
+import { GoalManager } from '@agentkai/core';
 const goalManager = new GoalManager();
 await goalManager.addGoal({
   description: '完成项目文档',
@@ -186,7 +206,7 @@ await goalManager.addGoal({
 });
 
 // 日志系统
-import { Logger, LogLevel } from 'agentkai';
+import { Logger, LogLevel } from '@agentkai/core';
 const logger = new Logger('MyComponent');
 logger.info('系统初始化完成');
 logger.debug('调试信息', { detail: 'value' });
@@ -196,8 +216,10 @@ logger.debug('调试信息', { detail: 'value' });
 
 本项目采用monorepo架构，包含以下主要包：
 
-- `@agentkai/core` - 核心功能，包含AI系统、记忆系统、目标管理等
-- `@agentkai/cli` - 命令行界面
+- `@agentkai/core` - 核心功能，包含AI系统、记忆系统、目标管理等基础组件
+- `@agentkai/node` - Node.js环境适配层，提供Node.js特定的实现和优化
+- `@agentkai/browser` - 浏览器环境适配层，支持前端Web应用使用
+- `@agentkai/cli` - 命令行界面，用于终端交互和任务管理
 
 ### 开发设置
 
@@ -212,18 +234,22 @@ pnpm build
 pnpm dev:cli
 ```
 
-要了解更多关于monorepo迁移的信息，请查看 [monorepo迁移计划](docs/monorepo-migration/plan.md) 和 [迁移进度](docs/monorepo-migration/progress.md)。
+如需了解包发布流程，请参考[Monorepo发布最佳实践](docs/MONOREPO_RELEASE.md)和[发布流程速查表](docs/RELEASE_CHEATSHEET.md)。
 
 ## 存储结构
 
-系统使用本地文件系统存储记忆和目标，默认存储在项目根目录的`.data`文件夹中：
+系统使用本地文件系统存储记忆和目标，默认存储在用户主目录的`.agentkai`文件夹中：
 
 ```
-.data/
-├── goals/          # 目标数据
-│   └── [id].json  # 各目标文件
-└── memories/       # 记忆数据
-    └── [id].json  # 各记忆文件
+~/.agentkai/
+├── config/         # 配置文件目录
+│   └── config.json # 主配置文件
+├── data/           # 数据存储目录
+│   ├── goals/      # 目标数据
+│   │   └── [id].json # 各目标文件
+│   └── memories/   # 记忆数据
+│       └── [id].json # 各记忆文件
+└── logs/           # 日志文件目录
 ```
 
 ## 未来计划
