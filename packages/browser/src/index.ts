@@ -12,4 +12,16 @@ const browserPlatform: PlatformServices = new BrowserPlatformServices();
 export default browserPlatform;
 
 // 导出所有浏览器平台相关的实现
-export * from './platform'; 
+export * from './platform';
+
+export * from '@agentkai/core';
+
+export { AISystem } from './core/AISystem';
+
+export * from './memory/embedding/BrowserSearchProvider';
+
+export * from './platform';
+
+export * from './services/config.service';
+
+export * from './storage/BrowserStorage';
