@@ -1,5 +1,4 @@
-import { QueryOptions } from '@agentkai/core/src/storage/interfaces';
-import { StorageProvider } from '@agentkai/core/src/storage/StorageProvider';
+import { QueryOptions, StorageProvider } from '@agentkai/core';
 import { platform } from '../platform';
 /**
  * 基于浏览器文件系统(IndexedDB)的存储实现

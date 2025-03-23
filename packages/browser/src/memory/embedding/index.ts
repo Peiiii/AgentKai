@@ -1,2 +1,1 @@
-export * from "./BrowserSearchProvider"
-export * from "./BrowserVectorIndex"
+export * from './BrowserSearchProvider';

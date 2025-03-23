@@ -18,32 +18,13 @@ export class OpenAIModel implements AIModel {
         this.logger = new Logger('OpenAIModel');
     }
 
-    async generateEmbedding(text: string): Promise<number[]> {
-        try {
-            if (!text || text.trim() === '') {
-                throw new Error('文本内容不能为空');
-            }
-
-            this.logger.info(`开始生成向量，文本长度: ${text.length}`);
-            const response = await this.client.embeddings.create({
-                model: this.config.embeddingModel || 'text-embedding-ada-002',
-                input: text
-            });
-
-            return response.data[0].embedding;
-        } catch (error) {
-            this.logger.error('生成嵌入向量失败:', error);
-            throw error;
-        }
-    }
-
     async generateText(prompt: string): Promise<string> {
         try {
             const response = await this.client.chat.completions.create({
                 model: this.config.model,
                 messages: [{ role: 'user', content: prompt }],
                 temperature: this.config.temperature,
-                max_tokens: this.config.maxTokens
+                max_tokens: this.config.maxTokens,
             });
 
             return response.choices[0].message?.content || '';
@@ -53,25 +34,30 @@ export class OpenAIModel implements AIModel {
         }
     }
 
-    async generateResponse(messages: string[]): Promise<{ response: string; tokens: { prompt: number; completion: number; total: number } }> {
+    async generateResponse(
+        messages: string[]
+    ): Promise<{
+        response: string;
+        tokens: { prompt: number; completion: number; total: number };
+    }> {
         try {
             const response = await this.client.chat.completions.create({
                 model: this.config.model,
-                messages: messages.map(content => ({ role: 'user', content })),
+                messages: messages.map((content) => ({ role: 'user', content })),
                 temperature: this.config.temperature,
-                max_tokens: this.config.maxTokens
+                max_tokens: this.config.maxTokens,
             });
 
             const promptTokens = response.usage?.prompt_tokens || 0;
             const completionTokens = response.usage?.completion_tokens || 0;
-            
+
             return {
                 response: response.choices[0].message?.content || '',
                 tokens: {
                     prompt: promptTokens,
                     completion: completionTokens,
-                    total: promptTokens + completionTokens
-                }
+                    total: promptTokens + completionTokens,
+                },
             };
         } catch (error) {
             this.logger.error('生成响应失败:', error);
@@ -83,7 +69,7 @@ export class OpenAIModel implements AIModel {
         try {
             const prompt = this.buildDecisionPrompt(context);
             const response = await this.generateText(prompt);
-            
+
             const parsed = JSON.parse(response);
             return {
                 id: uuidv4(),
@@ -92,10 +78,10 @@ export class OpenAIModel implements AIModel {
                 reasoning: parsed.reasoning || '基于输入生成的决策',
                 timestamp: Date.now(),
                 context: {
-                    memories: context.memories.map(m => m.content),
-                    tools: context.tools.map(t => t.name),
-                    goals: []
-                }
+                    memories: context.memories.map((m) => m.content),
+                    tools: context.tools.map((t) => t.name),
+                    goals: [],
+                },
             };
         } catch (error) {
             this.logger.error('解析决策失败:', error);
@@ -108,16 +94,16 @@ export class OpenAIModel implements AIModel {
                 context: {
                     memories: [],
                     tools: [],
-                    goals: []
-                }
+                    goals: [],
+                },
             };
         }
     }
 
     private buildDecisionPrompt(context: Context): string {
-        const memories = context.memories.map(m => m.content).join('\n');
-        const tools = context.tools.map(t => t.name).join(', ');
-        
+        const memories = context.memories.map((m) => m.content).join('\n');
+        const tools = context.tools.map((t) => t.name).join(', ');
+
         return `基于以下信息做出决策：
 
 记忆：
@@ -136,4 +122,4 @@ ${JSON.stringify(context.environment, null, 2)}
     "reasoning": "推理过程"
 }`;
     }
-} 
+}

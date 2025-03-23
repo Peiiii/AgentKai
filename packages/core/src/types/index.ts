@@ -128,7 +128,6 @@ export enum GoalStatus {
 
 // AI模型接口
 export interface AIModel {
-    generateEmbedding(text: string): Promise<Vector>;
     generateText(prompt: string): Promise<string>;
     generateDecision(context: Context): Promise<Decision>;
     generateResponse(messages: string[]): Promise<{ response: string; tokens: { prompt: number; completion: number } }>;

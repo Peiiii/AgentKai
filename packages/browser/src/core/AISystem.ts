@@ -1,5 +1,4 @@
-import { BaseAISystem, BaseConfigService, Goal, ISearchProvider, Memory } from '@agentkai/core';
-import { StorageProvider } from '@agentkai/core/src/storage';
+import { BaseAISystem, BaseConfigService, Goal, ISearchProvider, Memory, StorageProvider } from '@agentkai/core';
 import { BrowserSearchProvider } from '../memory/embedding';
 import { ConfigService } from '../services/config.service';
 import { BrowserStorage } from '../storage/BrowserStorage';
