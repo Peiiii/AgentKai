@@ -11,6 +11,7 @@ yarn.lock
 .env
 .env.*
 !.env.example
+*.local
 
 # 构建输出
 dist/

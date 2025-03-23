@@ -1,56 +1,57 @@
 {
-  "name": "agentkai-monorepo",
-  "private": true,
-  "version": "1.5.0",
-  "description": "具有自主意识、长短期记忆、目标管理和自主决策能力的AI助手系统，其中AI助手名为'凯'(Kai)",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "pnpm -r build",
-    "dev:cli": "pnpm --filter @agentkai/cli dev",
-    "dev:web": "pnpm --filter @agentkai/web dev",
-    "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
-    "format": "pnpm -r format",
-    "clean": "pnpm -r clean",
-    "prepare": "husky install || echo 'husky not installed'",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "version-and-commit": "changeset version && git add . && git commit -m 'chore: version packages'",
-    "release": "pnpm build && changeset publish",
-    "publish-all": "pnpm version-and-commit && pnpm release && git push && git push --tags",
-    "link-global": "pnpm build && pnpm --filter @agentkai/cli install -g && pnpm --filter @agentkai/node install -g && pnpm --filter @agentkai/browser install -g && pnpm --filter @agentkai/core install -g"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Peiiii/AgentKai.git"
-  },
-  "homepage": "https://github.com/Peiiii/AgentKai#readme",
-  "bugs": {
-    "url": "https://github.com/Peiiii/AgentKai/issues"
-  },
-  "keywords": [
-    "ai",
-    "autonomous",
-    "memory",
-    "decision-making",
-    "goal-oriented",
-    "agent",
-    "kai",
-    "chatbot",
-    "assistant",
-    "llm"
-  ],
-  "author": "Peiiii",
-  "license": "MIT",
-  "devDependencies": {
-    "@changesets/cli": "^2.27.1",
-    "@typescript-eslint/eslint-plugin": "^7.1.1",
-    "@typescript-eslint/parser": "^7.1.1",
-    "eslint": "^8.57.0",
-    "husky": "^9.0.11",
-    "prettier": "^3.2.5",
-    "typescript": "^5.3.3"
-  }
+    "name": "agentkai-monorepo",
+    "private": true,
+    "version": "1.5.0",
+    "description": "具有自主意识、长短期记忆、目标管理和自主决策能力的AI助手系统，其中AI助手名为'凯'(Kai)",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "pnpm -r build",
+        "dev:cli": "pnpm --filter @agentkai/cli dev",
+        "dev:web": "pnpm --filter @agentkai/web dev",
+        "test": "pnpm -r test",
+        "lint": "pnpm -r lint",
+        "format": "pnpm -r format",
+        "clean": "pnpm -r clean",
+        "prepare": "husky install || echo 'husky not installed'",
+        "changeset": "changeset",
+        "version-packages": "changeset version",
+        "version-and-commit": "changeset version && git add . && git commit -m 'chore: version packages'",
+        "release": "pnpm build && changeset publish",
+        "publish-all": "pnpm version-and-commit && pnpm release && git push && git push --tags",
+        "link-global": "pnpm build && pnpm --filter @agentkai/cli install -g && pnpm --filter @agentkai/node install -g && pnpm --filter @agentkai/browser install -g && pnpm --filter @agentkai/core install -g",
+        "deploy:web": "pnpm build && ossutil64 cp -r -u packages/web/dist oss://agentkai -c ./.ossutilconfig.local"
+      },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Peiiii/AgentKai.git"
+    },
+    "homepage": "https://github.com/Peiiii/AgentKai#readme",
+    "bugs": {
+        "url": "https://github.com/Peiiii/AgentKai/issues"
+    },
+    "keywords": [
+        "ai",
+        "autonomous",
+        "memory",
+        "decision-making",
+        "goal-oriented",
+        "agent",
+        "kai",
+        "chatbot",
+        "assistant",
+        "llm"
+    ],
+    "author": "Peiiii",
+    "license": "MIT",
+    "devDependencies": {
+        "@changesets/cli": "^2.27.1",
+        "@typescript-eslint/eslint-plugin": "^7.1.1",
+        "@typescript-eslint/parser": "^7.1.1",
+        "eslint": "^8.57.0",
+        "husky": "^9.0.11",
+        "prettier": "^3.2.5",
+        "typescript": "^5.3.3"
+    }
 }
