@@ -1,5 +1,13 @@
 # @agentkai/node
 
+## 2.0.2
+
+### Patch Changes
+
+- fix: data path
+- Updated dependencies
+    - @agentkai/core@2.0.2
+
 ## 2.0.1
 
 ### Patch Changes

@@ -1,32 +1,71 @@
-name: Node.js Package
+name: Publish Packages
 
 on:
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version type (patch/minor/major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
         with:
-          node-version: 18
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-
-  publish-npm:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: 18
           registry-url: https://registry.npmjs.org/
-      - run: npm ci
-      - run: npm run build
-      - run: npm publish --access public
+          
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+        
+      - name: Build Packages
+        run: pnpm build
+        
+      - name: Create Changeset
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # Create an automated changeset for all packages
+          echo '{"@agentkai/core": "${{ github.event.inputs.version_type }}", "@agentkai/node": "${{ github.event.inputs.version_type }}", "@agentkai/browser": "${{ github.event.inputs.version_type }}", "@agentkai/cli": "${{ github.event.inputs.version_type }}"}' > .changeset/automated-release.json
+          echo 'Automated release triggered from GitHub Actions' > .changeset/automated-release.md
+          
+      - name: Update Versions
+        run: pnpm version-packages
+        
+      - name: Commit Version Changes
+        run: |
+          git add .
+          git commit -m "chore: version packages [skip ci]" || echo "No changes to commit"
+          
+      - name: Publish to NPM
+        run: pnpm release
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}} 
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: Push Changes
+        run: |
+          git push
+          git push --tags 

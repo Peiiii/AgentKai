@@ -1,5 +1,11 @@
 # @agentkai/core
 
+## 2.0.2
+
+### Patch Changes
+
+- fix: data path
+
 ## 2.0.1
 
 ### Patch Changes

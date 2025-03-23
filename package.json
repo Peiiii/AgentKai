@@ -16,7 +16,9 @@
     "prepare": "husky install || echo 'husky not installed'",
     "changeset": "changeset",
     "version-packages": "changeset version",
+    "version-and-commit": "changeset version && git add . && git commit -m 'chore: version packages'",
     "release": "pnpm build && changeset publish",
+    "publish-all": "pnpm version-and-commit && pnpm release && git push && git push --tags",
     "link-global": "pnpm build && pnpm --filter @agentkai/cli install -g"
   },
   "repository": {

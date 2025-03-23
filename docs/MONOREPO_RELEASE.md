@@ -13,14 +13,19 @@ pnpm changeset
 # 2. 更新受影响包的版本号
 pnpm version-packages  
 
-# 3. 构建所有包并发布到npm
-pnpm build && pnpm release
+# 3. 提交版本更新产生的文件变更（重要！）
+git add .
+git commit -m "chore: version packages"
 
-# 4. 推送到远程仓库
+# 4. 构建所有包并发布到npm（会自动创建git标签）
+pnpm release
+
+# 5. 推送提交和标签到远程仓库
 git push
-git push origin v1.6.0
-
+git push --tags
 ```
+
+> **重要提示**: 在步骤2和步骤4之间，必须提交`version-packages`生成的文件更改（包括版本号更新和CHANGELOG更新），否则创建的git标签将不包含这些更改。
 
 ## 当前项目设置
 
@@ -74,7 +79,20 @@ pnpm version-packages
 - 更新内部依赖引用
 - 更新CHANGELOG.md文件
 
-### 4. 构建和发布
+> **注意**：`version-packages`命令只会修改文件，不会自动提交这些更改到git。你必须手动提交这些更改。
+
+### 4. 提交版本更改
+
+这一步非常重要，必须手动提交版本更新产生的文件变更：
+
+```bash
+git add .
+git commit -m "chore: version packages"
+```
+
+如果跳过这一步，后续发布时创建的git标签将不包含版本更新的变更。
+
+### 5. 构建和发布
 
 构建所有包并发布到npm：
 
@@ -89,7 +107,16 @@ pnpm release
 `pnpm release`命令会：
 - 将所有带有新版本的包发布到npm
 - 将`workspace:*`引用转换为实际版本号
-- 提交所有变更到git并创建标签
+- 创建git标签，但不会提交文件变更（这就是为什么步骤4很重要）
+
+### 6. 推送更改
+
+发布完成后，推送所有更改和标签到远程仓库：
+
+```bash
+git push
+git push --tags
+```
 
 ## 语义化版本控制 (Semver)
 
@@ -121,6 +148,13 @@ monorepo中依赖关系的自动处理:
 # 只为特定包创建变更
 pnpm changeset --scope=@agentkai/cli
 
+# 更新版本
+pnpm version-packages
+
+# 提交版本更改
+git add .
+git commit -m "chore: version cli package"
+
 # 过滤构建和发布
 pnpm --filter=@agentkai/cli build
 pnpm --filter=@agentkai/cli publish
@@ -139,6 +173,10 @@ pnpm changeset
 
 # 更新版本（会产生如1.0.0-beta.1格式的版本）
 pnpm version-packages
+
+# 提交版本更改
+git add .
+git commit -m "chore: version beta packages"
 
 # 发布beta版本
 pnpm release
@@ -162,19 +200,37 @@ cd test-app
 npm install @agentkai/cli
 ```
 
+## 自动化工作流
+
+为简化流程，您可以在`package.json`中添加以下脚本：
+
+```json
+"scripts": {
+  "version-and-commit": "pnpm version-packages && git add . && git commit -m 'chore: version packages'",
+  "publish-all": "pnpm version-and-commit && pnpm release && git push && git push --tags"
+}
+```
+
+这样您可以使用`pnpm publish-all`一键完成从版本更新到发布的全过程。
+
 ## 常见问题与解决方案
 
-1. **发布失败**：
+1. **版本标签不包含版本更新**：
+   - 原因：没有在`version-packages`后提交更改
+   - 解决：按照完整流程，确保在`release`前提交所有更改
+
+2. **发布失败**：
    - 检查npm登录状态：`npm whoami`
    - 检查包名是否已被占用：`npm view [package-name]`
    - 确认包的版本号是否已存在：`npm view [package-name] versions`
 
-2. **依赖版本问题**：
+3. **依赖版本问题**：
    - 检查pnpm是否正确转换了workspace引用
    - 使用`npm pack`命令预览即将发布的包内容
 
 ## 最佳实践总结
 
+- **完整流程**：坚持 changeset → version-packages → commit → release 的完整流程
 - **版本管理**：使用Changesets记录每个包的变更并自动更新相关依赖
 - **CI/CD集成**：在GitHub Actions中自动执行发布流程
 - **锁定内部依赖版本**：发布时会自动处理`workspace:*`引用
