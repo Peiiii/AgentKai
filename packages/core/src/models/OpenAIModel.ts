@@ -14,6 +14,7 @@ export class OpenAIModel implements AIModel {
         this.client = new OpenAI({
             apiKey: config.apiKey,
             baseURL: config.apiBaseUrl,
+            dangerouslyAllowBrowser: true,
         });
         this.logger = new Logger('OpenAIModel');
     }

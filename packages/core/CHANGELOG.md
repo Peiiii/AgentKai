@@ -1,5 +1,11 @@
 # @agentkai/core
 
+## 2.0.4
+
+### Patch Changes
+
+- openai allow browser usage
+
 ## 2.0.3
 
 ### Patch Changes
