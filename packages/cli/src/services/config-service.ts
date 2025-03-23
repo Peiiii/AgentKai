@@ -353,26 +353,52 @@ export class CLIConfigService {
             return;
         }
 
-        // 默认显示所有配置
-        if (!options.path && !options.init && !options.edit && !options.get && !options.set) {
+        // 显示所有配置项（--list 选项或无参数时）
+        if (options.list || (!options.path && !options.init && !options.edit && !options.get && !options.set && !options.dataPath)) {
+            // 获取完整配置
+            const fullConfig = this.coreConfigService.getFullConfig({ allowEmpty: true });
+            
             // 获取所有环境变量
             const allEnvVars = process.env;
 
+            console.log('\n=== 系统配置信息 ===');
+            
+            // 显示当前使用的配置文件
+            const configFiles = await this.coreConfigService.findConfigFiles();
+            console.log('\n📄 配置文件:');
+            if (configFiles.length === 0) {
+                console.log('  未找到配置文件');
+            } else {
+                configFiles.forEach((file) => {
+                    console.log(`  ${file}`);
+                });
+            }
+            
+            // 显示数据存储路径
+            const dataPath = this.coreConfigService.getDataPath();
+            console.log('\n💾 数据存储目录:');
+            console.log(`  ${dataPath}`);
+            
             // 定义要显示的配置类别
             const categories = [
-                { prefix: 'AI_', title: 'AI模型配置' },
-                { prefix: 'MEMORY_', title: '记忆系统配置' },
-                { prefix: 'DECISION_', title: '决策系统配置' },
+                { prefix: 'AI_', title: 'AI模型配置', icon: '🤖' },
+                { prefix: 'MEMORY_', title: '记忆系统配置', icon: '🧠' },
+                { prefix: 'DECISION_', title: '决策系统配置', icon: '🔍' },
+                { prefix: 'APP_', title: '应用程序配置', icon: '⚙️' },
+                { prefix: 'LOG_', title: '日志配置', icon: '📝' }
             ];
 
-            // 打印配置
+            // 显示完整的配置信息
+            // 先显示分类的环境变量
+            let hasDisplayedVars = false;
             categories.forEach((category) => {
                 const categoryVars = Object.entries(allEnvVars)
                     .filter(([key]) => key.startsWith(category.prefix))
                     .sort(([a], [b]) => a.localeCompare(b));
 
                 if (categoryVars.length > 0) {
-                    console.log(`\n${category.title}:`);
+                    hasDisplayedVars = true;
+                    console.log(`\n${category.icon} ${category.title}:`);
                     categoryVars.forEach(([key, value]) => {
                         // 如果是API密钥，则隐藏部分内容
                         if (key.includes('API_KEY') && value) {
@@ -387,9 +413,74 @@ export class CLIConfigService {
                     });
                 }
             });
+            
+            // 显示配置对象中的其他重要配置
+            console.log('\n📊 配置对象信息:');
+            
+            // 显示模型配置
+            if (fullConfig.modelConfig) {
+                console.log('\n  模型配置:');
+                Object.entries(fullConfig.modelConfig).forEach(([key, value]) => {
+                    // 隐藏API密钥
+                    if (key.toLowerCase().includes('apikey') && value) {
+                        const hiddenValue = typeof value === 'string' ? 
+                            value.substring(0, 4) +
+                            '*'.repeat(Math.max(value.length - 8, 0)) +
+                            (value.length > 4 ? value.substring(value.length - 4) : '') : '[复杂对象]';
+                        console.log(`    ${key}: ${hiddenValue}`);
+                    } else if (typeof value === 'object' && value !== null) {
+                        console.log(`    ${key}: [对象]`);
+                    } else {
+                        console.log(`    ${key}: ${value}`);
+                    }
+                });
+            }
+            
+            // 显示记忆配置
+            if (fullConfig.memoryConfig) {
+                console.log('\n  记忆配置:');
+                Object.entries(fullConfig.memoryConfig).forEach(([key, value]) => {
+                    if (typeof value === 'object' && value !== null) {
+                        console.log(`    ${key}: [对象]`);
+                    } else {
+                        console.log(`    ${key}: ${value}`);
+                    }
+                });
+            }
+            
+            // 显示其他重要配置项
+            const otherImportantKeys = ['dataPath', 'logLevel', 'debug'];
+            const otherConfig = otherImportantKeys
+                .filter(key => {
+                    if (key === 'dataPath' && fullConfig.appConfig) {
+                        return fullConfig.appConfig.dataPath !== undefined;
+                    }
+                    return false;
+                })
+                .map(key => {
+                    if (key === 'dataPath' && fullConfig.appConfig) {
+                        return { key, value: fullConfig.appConfig.dataPath };
+                    }
+                    return { key, value: 'undefined' };
+                });
+                
+            if (otherConfig.length > 0) {
+                console.log('\n  其他配置:');
+                otherConfig.forEach(({ key, value }) => {
+                    console.log(`    ${key}: ${value}`);
+                });
+            }
 
-            console.log('\n提示: 使用 "agentkai config --init" 创建默认配置文件');
-            console.log('提示: 使用 "agentkai config --edit" 编辑配置文件');
+            if (!hasDisplayedVars && Object.keys(fullConfig).length === 0) {
+                console.log('\n⚠️ 未找到任何配置信息');
+            }
+
+            console.log('\n🔍 帮助提示:');
+            console.log('  使用 "agentkai config --init" 创建默认配置文件');
+            console.log('  使用 "agentkai config --edit" 编辑配置文件');
+            console.log('  使用 "agentkai config --set KEY VALUE" 设置特定配置项');
+            console.log('  使用 "agentkai config --get KEY" 获取特定配置项');
+            return;
         }
     }
 

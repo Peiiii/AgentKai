@@ -25,7 +25,7 @@ interface MemoryMetadata {
 
 /**
  * HNSW搜索提供者
- * 
+ *
  * 这个类使用HNSW算法提供高效的向量搜索功能。与传统实现不同，为避免与底层C++库
  * 的内存管理问题，本实现不保留索引实例，而是将记忆和其嵌入向量保存在内存中，
  * 仅在需要搜索时创建临时索引。此方法虽然每次搜索时有额外开销，但完全避免了
@@ -38,20 +38,20 @@ export class HnswSearchProvider implements ISearchProvider {
     private readonly storage: StorageProvider<Memory>;
     private readonly fs: FileSystem;
     private readonly pathUtils: PathUtils;
-    
+
     // 配置参数
     private readonly dataPath: string;
     private readonly indexName: string;
     private readonly metadataPath: string;
     private dimensions: number;
     private spacetype: SpaceName = 'cosine';
-    
+
     // 内部状态
     private initialized = false;
     private idToIndex = new Map<string, number>();
     private memories = new Map<number, Memory>();
     private currentCount = 0;
-    
+
     // 搜索参数
     private readonly efConstruction = 200;
     private readonly efSearch = 50;
@@ -67,7 +67,7 @@ export class HnswSearchProvider implements ISearchProvider {
     constructor(
         storage: StorageProvider<Memory>,
         embeddingProvider: EmbeddingProvider,
-        dataPath = 'data',
+        dataPath: string,
         indexName = 'memory'
     ) {
         this.logger = new Logger('HnswSearchProvider');
@@ -88,12 +88,12 @@ export class HnswSearchProvider implements ISearchProvider {
      */
     async deleteMemory(id: string): Promise<void> {
         await this.ensureInitialized();
-        
+
         if (this.idToIndex.has(id)) {
             const indexId = this.idToIndex.get(id)!;
             this.idToIndex.delete(id);
             this.memories.delete(indexId);
-            
+
             await this.saveMetadata();
             this.logger.debug(`记忆已从索引中移除, ID: ${id}`);
         }
@@ -132,9 +132,7 @@ export class HnswSearchProvider implements ISearchProvider {
 
         // 验证向量维度
         if (vector.length !== this.dimensions) {
-            this.logger.warn(
-                `查询向量维度 ${vector.length} 与索引维度 ${this.dimensions} 不匹配`
-            );
+            this.logger.warn(`查询向量维度 ${vector.length} 与索引维度 ${this.dimensions} 不匹配`);
             return { results: [] };
         }
 
@@ -142,14 +140,14 @@ export class HnswSearchProvider implements ISearchProvider {
             const results = await this.searchWithTempIndex(vector, limit);
             return {
                 results,
-                totalCount: results.length
+                totalCount: results.length,
             };
         } catch (error) {
             this.logger.error('向量搜索失败', error);
             return { results: [] };
         }
     }
-    
+
     /**
      * 创建临时索引并执行搜索
      * @param vector 查询向量
@@ -159,26 +157,26 @@ export class HnswSearchProvider implements ISearchProvider {
     private async searchWithTempIndex(vector: number[], limit: number): Promise<Memory[]> {
         const tempIndex = new HierarchicalNSW(this.spacetype, this.dimensions);
         const maxElements = Math.max(this.memories.size + 10, 100);
-        
+
         try {
             // 初始化临时索引
             tempIndex.initIndex(maxElements, this.M, this.efConstruction);
             tempIndex.setEf(this.efSearch);
-            
+
             // 将记忆添加到临时索引
             for (const [indexId, memory] of this.memories.entries()) {
                 if (memory.embedding?.length === this.dimensions) {
                     tempIndex.addPoint(memory.embedding, indexId);
                 }
             }
-            
+
             // 限制结果数量
             const numNeighbors = Math.min(limit, this.memories.size);
             if (numNeighbors === 0) return [];
-            
+
             // 执行KNN搜索
             const result = tempIndex.searchKnn(vector, numNeighbors);
-            
+
             // 处理搜索结果
             return this.processSearchResults(result.neighbors, result.distances);
         } finally {
@@ -186,7 +184,7 @@ export class HnswSearchProvider implements ISearchProvider {
             this.releaseIndexResource(tempIndex);
         }
     }
-    
+
     /**
      * 处理搜索结果
      * @param neighbors 邻居索引
@@ -195,29 +193,29 @@ export class HnswSearchProvider implements ISearchProvider {
      */
     private processSearchResults(neighbors: number[], distances: number[]): Memory[] {
         const results: Memory[] = [];
-        
+
         for (let i = 0; i < neighbors.length; i++) {
             const indexId = neighbors[i];
             const distance = distances[i];
-            
+
             if (this.memories.has(indexId)) {
                 const memory = this.memories.get(indexId)!;
                 const similarity = this.distanceToSimilarity(distance);
-                
+
                 // 添加相似度信息
                 results.push({
                     ...memory,
                     metadata: {
                         ...memory.metadata,
-                        similarity
-                    }
+                        similarity,
+                    },
                 });
             }
         }
-        
+
         return results;
     }
-    
+
     /**
      * 将距离转换为相似度
      * @param distance 距离值
@@ -233,7 +231,7 @@ export class HnswSearchProvider implements ISearchProvider {
             return Math.exp(-distance / 2);
         }
     }
-    
+
     /**
      * 安全释放索引资源
      * @param index 索引实例
@@ -269,7 +267,7 @@ export class HnswSearchProvider implements ISearchProvider {
         try {
             // 加载元数据
             await this.loadMetadata();
-            
+
             // 如果没有加载到记忆，则尝试重建索引
             if (this.memories.size === 0) {
                 this.logger.info('未找到有效记忆，将重建索引');
@@ -343,7 +341,7 @@ export class HnswSearchProvider implements ISearchProvider {
             this.idToIndex.clear();
             this.memories.clear();
             this.currentCount = 0;
-            
+
             // 保存空元数据
             await this.saveMetadata();
             this.logger.info('索引已清空');
@@ -362,16 +360,17 @@ export class HnswSearchProvider implements ISearchProvider {
             if (!(await this.fs.exists(dir))) {
                 await this.fs.mkdir(dir, { recursive: true });
             }
-            
+
             // 构造元数据对象
             const metadata: MemoryMetadata = {
                 dimensions: this.dimensions,
                 count: this.currentCount,
                 spacetype: this.spacetype,
                 idToIndex: Array.from(this.idToIndex.entries()),
-                memories: Array.from(this.memories.entries()).map(
-                    ([id, memory]) => [String(id), memory]
-                ),
+                memories: Array.from(this.memories.entries()).map(([id, memory]) => [
+                    String(id),
+                    memory,
+                ]),
             };
 
             // 保存到文件
@@ -391,13 +390,13 @@ export class HnswSearchProvider implements ISearchProvider {
         this.idToIndex.clear();
         this.memories.clear();
         this.currentCount = 0;
-        
+
         // 检查文件是否存在
         if (!(await this.fs.exists(this.metadataPath))) {
             this.logger.info(`元数据文件不存在: ${this.metadataPath}`);
             return;
         }
-        
+
         try {
             // 读取并解析元数据
             const metadataStr = await this.fs.readFile(this.metadataPath);
@@ -419,7 +418,7 @@ export class HnswSearchProvider implements ISearchProvider {
                     this.memories.set(parseInt(indexId), memory);
                 }
             }
-            
+
             this.logger.info(`加载了 ${this.memories.size} 条记忆的元数据`);
         } catch (error) {
             this.logger.error(`加载元数据失败:`, error);
@@ -442,13 +441,13 @@ export class HnswSearchProvider implements ISearchProvider {
             this.idToIndex.clear();
             this.memories.clear();
             this.currentCount = 0;
-            
+
             // 获取所有记忆
             const memories = await this.storage.list();
 
             // 筛选有嵌入向量的记忆
             const validMemories = memories.filter(
-                memory => memory.embedding?.length === this.dimensions
+                (memory) => memory.embedding?.length === this.dimensions
             );
 
             this.logger.info(`找到 ${validMemories.length} 条有效记忆用于索引构建`);
@@ -460,7 +459,7 @@ export class HnswSearchProvider implements ISearchProvider {
                 this.idToIndex.set(memory.id, indexId);
                 this.memories.set(indexId, memory);
             }
-            
+
             this.currentCount = validMemories.length;
 
             // 保存元数据

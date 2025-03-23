@@ -7,6 +7,7 @@ export interface ConfigCommandOptions {
   edit?: boolean;
   get?: string;
   set?: string;
+  list?: boolean;
   debug?: boolean;
 }
 

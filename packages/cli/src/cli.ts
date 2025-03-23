@@ -203,7 +203,7 @@ program
 program
     .command('config')
     .description('配置管理')
-    .option('-l, --list', '列出当前配置')
+    .option('-l, --list', '列出所有配置项')
     .option('-g, --get <key>', '获取指定配置项')
     .option('-s, --set <key> <value>', '设置配置项')
     .option('-i, --init', '初始化用户配置文件')

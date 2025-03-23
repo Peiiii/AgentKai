@@ -2,9 +2,8 @@ import { BaseAISystem, BaseConfigService, Goal, ISearchProvider, Memory } from '
 import { StorageProvider } from '@agentkai/core/src/storage';
 import { HnswSearchProvider } from '../memory/embedding/HnswSearchProvider';
 import { platform } from '../platform';
-import { FileSystemStorage } from '../storage/FileSystemStorage';
 import { ConfigService } from '../services/config.service';
-
+import { FileSystemStorage } from '../storage/FileSystemStorage';
 
 const BASE_DIR = platform.path.join(platform.path.home(), '.agentkai');
 
@@ -21,8 +20,10 @@ export class AISystem extends BaseAISystem {
         return new FileSystemStorage(platform.path.join(dataPath, 'memory'));
     }
     createMemorySearchProvider(): ISearchProvider {
-        return new HnswSearchProvider(this.createMemoryStorage(), this.createEmbeddingProvider());
+        return new HnswSearchProvider(
+            this.createMemoryStorage(),
+            this.createEmbeddingProvider(),
+            platform.path.join(BASE_DIR, 'memory')
+        );
     }
 }
-
-console.log(platform.path.join(BASE_DIR, 'memory'));
