@@ -1,4 +1,4 @@
-import { ModelConfig } from '../../types';
+import { ModelConfig } from '../../types/config';
 import { ConfigService } from '../../services/config';
 import { EmbeddingProvider } from './EmbeddingProvider';
 import { FakeEmbeddingProvider } from './FakeEmbeddingProvider';

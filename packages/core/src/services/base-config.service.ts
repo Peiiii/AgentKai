@@ -19,10 +19,10 @@ export class ConfigService {
     private logger: Logger;
 
     // 平台服务
-    private fs: FileSystem = platform.fs;
-    private env: EnvProvider = platform.env;
-    private pathUtils: PathUtils = platform.path;
-    private platformInfo: PlatformInfo = platform.platformInfo;
+    private fs: FileSystem;
+    private env: EnvProvider;
+    private pathUtils: PathUtils;
+    private platformInfo: PlatformInfo;
 
     // 配置相关路径
     private configDir: string;

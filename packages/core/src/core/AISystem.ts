@@ -1,11 +1,12 @@
 import { GoalManager } from '../goals/GoalManager';
 import { MemorySystem } from '../memory/MemorySystem';
 import { EmbeddingProviderFactory } from '../memory/embedding/EmbeddingProviderFactory';
-import { HnswSearchProvider } from '../memory/embedding/HnswSearchProvider';
+import { SearchProviderFactory } from '../memory/embedding/SearchProviderFactory';
 import { ConfigService } from '../services/config';
 import { ToolService } from '../services/tools';
-import { StorageFactory } from '../storage/StorageFactory';
-import { AIModel, Config, Goal, GoalStatus, Memory, MemoryType, SystemResponse } from '../types';
+import { StorageManager } from '../storage/StorageManager';
+import { AIModel, Goal, GoalStatus, Memory, MemoryType, SystemResponse } from '../types';
+import { AgentKaiConfig } from '../types/config';
 import { ModelError, wrapError } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { PerformanceMonitor } from '../utils/performance';
@@ -30,8 +31,8 @@ export class AISystem {
     private logger: Logger;
     private performance: PerformanceMonitor;
     private requestTimeoutMs: number = 30000; // 默认请求超时时间为30秒
-    private config: Config | null = null;
-    private storageFactory: StorageFactory;
+    private config: AgentKaiConfig | null = null;
+    private storageFactory: StorageManager;
 
     // 新的组件
     private conversation: ConversationManager;
@@ -39,43 +40,41 @@ export class AISystem {
     private responseProcessor: ResponseProcessor;
     private promptBuilder: PromptBuilder;
 
-    constructor(config: Config, model: AIModel, plugins: Plugin[] = []) {
+    constructor(config: AgentKaiConfig, model: AIModel, plugins: Plugin[] = []) {
         this.logger = new Logger('AISystem');
         this.performance = new PerformanceMonitor('AISystem');
         this.config = config;
         this.model = model;
-        
+
         // 创建存储工厂
         const dataPath = config.appConfig.dataPath || 'data';
-        this.storageFactory = new StorageFactory(dataPath);
+        this.storageFactory = new StorageManager(dataPath);
         this.logger.info(`使用数据存储路径: ${dataPath}`);
-        
+
         // 创建嵌入提供者 - 检查是否应该使用真实嵌入API
         const useRealEmbeddings = config.memoryConfig?.importanceThreshold > 0 || false;
         const embeddingType = useRealEmbeddings ? 'openai' : 'fake';
-        const embeddingProvider = EmbeddingProviderFactory.createProvider(embeddingType, config.modelConfig);
-        
+        const embeddingProvider = EmbeddingProviderFactory.createProvider(
+            embeddingType,
+            config.modelConfig
+        );
+
         // 创建内存存储
         const memoryStorage = this.storageFactory.getMemoryStorage();
-        
-        // 创建HNSW搜索提供者
-        const searchProvider = new HnswSearchProvider(
-            memoryStorage,
+
+        // 使用SearchProviderFactory创建搜索提供者
+        const searchProvider = SearchProviderFactory.createSearchProvider(
+            'memory',
             embeddingProvider,
-            dataPath
+            memoryStorage,
+            config.modelConfig.embeddingDimensions
         );
-        
+
         // 初始化记忆系统
-        this.memory = new MemorySystem(
-            memoryStorage,
-            embeddingProvider,
-            searchProvider // 传入searchProvider代替直接传入dataPath
-        );
-        
+        this.memory = new MemorySystem(memoryStorage, embeddingProvider, searchProvider);
+
         // 初始化目标系统
-        this.goals = new GoalManager(
-            this.storageFactory.getGoalStorage()
-        );
+        this.goals = new GoalManager(this.storageFactory.getGoalStorage());
 
         // 初始化新组件
         this.conversation = new ConversationManager(10); // 保留最近10条消息
@@ -89,12 +88,9 @@ export class AISystem {
         await this.goals.initialize();
         // 初始化插件管理器
         await this.pluginManager.initialize();
-        
-        // 初始化HNSW搜索提供者
-        if (this.memory.getSearchProvider()) {
-            await this.memory.getSearchProvider()?.initialize();
-        }
-        
+
+        await this.memory.initialize();
+
         this.logger.info('AI系统初始化完成');
     }
 
@@ -130,7 +126,7 @@ export class AISystem {
             // 1. 获取相关记忆
             this.performance.start('searchMemories');
             const relevantMemories = await this.withTimeout(
-                this.memory.searchMemoriesByContent(input),
+                this.memory.searchMemories(input),
                 this.requestTimeoutMs,
                 '记忆搜索超时'
             );
@@ -267,7 +263,7 @@ export class AISystem {
 
     async searchMemories(query: string, limit: number = 10): Promise<Memory[]> {
         this.logger.info('开始搜索记忆:', query);
-        return await this.memory.searchMemoriesByContent(query, limit);
+        return await this.memory.searchMemories(query, limit);
     }
 
     async getAllMemories(): Promise<Memory[]> {
@@ -279,7 +275,7 @@ export class AISystem {
     }
 
     async clearMemories(): Promise<void> {
-        await this.memory.clearAllMemories();
+        await this.memory.clearMemories();
     }
 
     async addGoal(

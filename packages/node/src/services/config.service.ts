@@ -1,14 +1,12 @@
-import { platform } from '../platform';
-import { EnvProvider, FileSystem, PathUtils, PlatformInfo } from '../platform/interfaces';
-import { ModelConfig, MemoryConfig, AppConfig, AgentKaiConfig } from '../types/config';
-import {
-    ConfigValidationError,
-} from '../types/config';
-import { Logger } from '../utils/logger';
+import { AgentKaiConfig, AppConfig, ConfigValidationError, EnvProvider, FileSystem, Logger, MemoryConfig, ModelConfig, PathUtils, PlatformInfo } from '@agentkai/core';
+import { NodePlatformServiceFactory } from './platform';
 
 interface ConfigOptions {
     customConfigDir?: string;
 }
+
+
+const platform = new NodePlatformServiceFactory().create();
 
 /**
  * 配置服务，用于管理所有配置

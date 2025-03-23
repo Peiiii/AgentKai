@@ -1,4 +1,5 @@
-import { Config, Goal, Memory } from '../../types';
+import { Goal, Memory } from '../../types';
+import { AgentKaiConfig } from '../../types/config';
 import { Logger } from '../../utils/logger';
 import { ConversationMessage } from '../conversation/ConversationManager';
 import { ToolService } from '../../services/tools';
@@ -8,7 +9,7 @@ import { ToolService } from '../../services/tools';
  * 负责构建AI系统提示和上下文信息
  */
 export class PromptBuilder {
-  private config: Config;
+  private config: AgentKaiConfig;
   private logger: Logger;
   private toolService: ToolService;
 
@@ -16,7 +17,7 @@ export class PromptBuilder {
    * 构造函数
    * @param config 系统配置
    */
-  constructor(config: Config) {
+  constructor(config: AgentKaiConfig) {
     this.config = config;
     this.logger = new Logger('PromptBuilder');
     this.toolService = ToolService.getInstance();

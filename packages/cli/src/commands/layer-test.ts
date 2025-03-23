@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { AISystem, BasicToolsPlugin, ConfigService, ToolService, SystemAdapter, Logger, LoggingMiddleware, Config, AppConfig, MemoryConfig, ModelConfig, OpenAIModel } from '@agentkai/core';
+import { AISystem, BasicToolsPlugin, ConfigService, ToolService, SystemAdapter, Logger, LoggingMiddleware, AgentKaiConfig, AppConfig, MemoryConfig, ModelConfig, OpenAIModel } from '@agentkai/core';
 import { UserInterface } from '../ui/interfaces';
 import { ConsoleUI } from '../ui/console';
 
@@ -172,7 +172,7 @@ async function initializeAISystem(configService: ConfigService): Promise<void> {
     });
     
     // 创建配置
-    const config: Config = {
+    const config: AgentKaiConfig = {
       appConfig: configService.getAppConfig() as AppConfig,
       memoryConfig: configService.getMemoryConfig() as MemoryConfig,
       modelConfig: configService.getAIModelConfig() as ModelConfig,

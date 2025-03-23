@@ -1,4 +1,3 @@
-import { HierarchicalNSW, SpaceName } from 'hnswlib-node';
 import { Logger } from '../../utils/logger';
 import { Memory, Vector } from '../../types';
 import { platform } from '../../platform';
@@ -11,33 +10,36 @@ interface IndexedMemory {
 }
 
 /**
- * 基于HNSW算法的向量索引实现
- * 使用hnswlib-node库提供高效的相似向量搜索
+ * 浏览器环境下的向量索引实现
+ * 使用hnswlib-wasm库提供浏览器兼容的相似向量搜索
  */
-export class HnswVectorIndex {
-  private index: HierarchicalNSW | null = null;
+export class BrowserVectorIndex {
+  private index: any = null;
+  private hnswlib: any = null;
   private dimensions: number;
   private maxElements: number;
   private memories: Map<number, IndexedMemory> = new Map();
   private idToIndex: Map<string, number> = new Map();
   private indexToId: Map<number, string> = new Map();
   private currentCount: number = 0;
-  private spacetype: SpaceName;
+  private spacetype: string;
   private logger: Logger;
   private indexPath: string;
   private efConstruction: number;
   private M: number;
   private fs: FileSystem;
   private pathUtils: PathUtils;
+  private initialized: boolean = false;
+  private indexLoaded: boolean = false;
 
   /**
-   * 创建HNSW向量索引
+   * 创建基于HNSW算法的浏览器兼容向量索引
    * @param dimensions 向量维度
    * @param maxElements 最大元素数量
    * @param indexPath 索引保存路径
    * @param efConstruction 构建索引时的ef参数(默认200)
    * @param M 最大出边数(默认16)
-   * @param spacetype 空间类型('l2'或'ip'，默认'cosine')
+   * @param spacetype 空间类型('l2'、'ip'或'cosine'，默认'cosine')
    */
   constructor(
     dimensions: number,
@@ -45,7 +47,7 @@ export class HnswVectorIndex {
     indexPath: string = '',
     efConstruction: number = 200, 
     M: number = 16,
-    spacetype: SpaceName = 'cosine'
+    spacetype: string = 'cosine'
   ) {
     this.dimensions = dimensions;
     this.maxElements = maxElements;
@@ -53,39 +55,102 @@ export class HnswVectorIndex {
     this.indexPath = indexPath;
     this.efConstruction = efConstruction;
     this.M = M;
-    this.logger = new Logger('HnswVectorIndex');
+    this.logger = new Logger('BrowserVectorIndex');
     this.fs = platform.fs;
     this.pathUtils = platform.path;
 
-    this.initIndex();
+    // 动态加载hnswlib-wasm
+    this.initLibrary();
+  }
+
+  /**
+   * 异步初始化hnswlib-wasm库
+   */
+  private async initLibrary(): Promise<void> {
+    try {
+      // 动态导入hnswlib-wasm
+      // 使用动态导入解决模块导入问题
+      let hnswlibModule;
+      try {
+        // 第一种导入方式尝试
+        // @ts-expect-error - 忽略类型检查问题
+        hnswlibModule = await import('hnswlib-wasm');
+      } catch (e) {
+        try {
+          // 第二种导入方式尝试 - 相对路径
+          // @ts-expect-error - 忽略类型检查问题
+          hnswlibModule = await import('../../../node_modules/hnswlib-wasm');
+        } catch (e2) {
+          // 尝试绝对路径
+          // @ts-expect-error - 忽略类型检查问题
+          hnswlibModule = await import('/Users/czmac/Projects/personal/agent/node_modules/hnswlib-wasm');
+        }
+      }
+      
+      const { loadHnswlib } = hnswlibModule;
+      this.hnswlib = await loadHnswlib();
+      this.logger.info('hnswlib-wasm库加载成功');
+      
+      // 初始化索引
+      await this.initIndex();
+    } catch (error) {
+      this.logger.error('加载hnswlib-wasm库失败:', error);
+      throw new Error('无法加载浏览器向量索引库: ' + (error as Error).message);
+    }
+  }
+
+  /**
+   * 确保库已初始化
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      if (!this.hnswlib) {
+        await this.initLibrary();
+      }
+      await this.initIndex();
+    }
   }
 
   /**
    * 初始化索引
    */
-  private initIndex(): void {
+  private async initIndex(): Promise<void> {
+    if (this.initialized) return;
+    
     try {
-      this.index = new HierarchicalNSW(this.spacetype, this.dimensions);
-      this.index.initIndex(this.maxElements, this.M, this.efConstruction);
-      
-      // 设置搜索时的ef参数（影响查询精度和速度）
-      this.index.setEf(Math.max(this.efConstruction, 50));
-      
-      this.logger.info(`创建新的HNSW索引，维度: ${this.dimensions}, 空间类型: ${this.spacetype}`);
-      
-      // 如果有指定索引路径且文件存在，则尝试加载
-      if (this.indexPath) {
-        this.fs.exists(this.indexPath).then(exists => {
-          if (exists) {
-            this.loadIndex();
-          }
-        }).catch(error => {
-          this.logger.error('检查索引文件存在失败:', error);
-        });
+      if (!this.hnswlib) {
+        this.logger.warn('hnswlib-wasm库尚未加载，正在等待...');
+        return;
       }
+      
+      // 创建索引实例
+      this.index = new this.hnswlib.HierarchicalNSW(this.spacetype, this.dimensions);
+      
+      // 尝试从文件加载索引
+      if (this.indexPath) {
+        const exists = this.hnswlib.EmscriptenFileSystemManager.checkFileExists(this.indexPath);
+        
+        if (exists) {
+          // 如果索引文件存在，从文件加载
+          await this.loadIndex();
+        } else {
+          // 否则初始化新索引
+          this.index.initIndex(this.maxElements, this.M, this.efConstruction, 100);
+          this.index.setEfSearch(Math.max(this.efConstruction, 50));
+          this.logger.info(`创建新的HNSW索引，维度: ${this.dimensions}, 空间类型: ${this.spacetype}`);
+        }
+      } else {
+        // 如果没有指定索引路径，直接初始化新索引
+        this.index.initIndex(this.maxElements, this.M, this.efConstruction, 100);
+        this.index.setEfSearch(Math.max(this.efConstruction, 50));
+        this.logger.info(`创建新的HNSW索引，维度: ${this.dimensions}, 空间类型: ${this.spacetype}`);
+      }
+      
+      this.initialized = true;
     } catch (error) {
       this.logger.error('初始化索引失败:', error);
       this.index = null;
+      throw new Error('初始化向量索引失败: ' + (error as Error).message);
     }
   }
 
@@ -94,7 +159,9 @@ export class HnswVectorIndex {
    * @param memory 记忆对象
    * @returns 是否成功添加
    */
-  addMemory(memory: Memory): boolean {
+  async addMemory(memory: Memory): Promise<boolean> {
+    await this.ensureInitialized();
+    
     if (!memory.embedding || !this.index) {
       return false;
     }
@@ -133,7 +200,9 @@ export class HnswVectorIndex {
    * @param id 记忆ID
    * @returns 是否成功移除
    */
-  removeMemory(id: string): boolean {
+  async removeMemory(id: string): Promise<boolean> {
+    await this.ensureInitialized();
+    
     if (!this.index || !this.idToIndex.has(id)) {
       return false;
     }
@@ -141,8 +210,10 @@ export class HnswVectorIndex {
     try {
       const indexId = this.idToIndex.get(id)!;
       
-      // 在HNSW中，无法真正删除点，但可以标记为已删除
-      // 由于API限制，我们这里只是从映射中移除
+      // 标记为已删除
+      this.index.markDelete(indexId);
+      
+      // 从映射中移除
       this.idToIndex.delete(id);
       this.indexToId.delete(indexId);
       this.memories.delete(indexId);
@@ -161,7 +232,9 @@ export class HnswVectorIndex {
    * @param limit 返回结果数量
    * @returns 相似记忆数组，按相似度降序排列
    */
-  search(vector: Vector, limit: number = 10): Memory[] {
+  async search(vector: Vector, limit: number = 10): Promise<Memory[]> {
+    await this.ensureInitialized();
+    
     if (!this.index || this.currentCount === 0) {
       this.logger.warn('索引为空或未初始化，无法搜索');
       return [];
@@ -184,7 +257,7 @@ export class HnswVectorIndex {
       // 组织返回结果
       const memories: Memory[] = [];
       
-      for (let i = 0; i < result.distances.length; i++) {
+      for (let i = 0; i < result.neighbors.length; i++) {
         const indexId = result.neighbors[i];
         const similarity = this.convertDistanceToSimilarity(result.distances[i]);
         
@@ -236,7 +309,8 @@ export class HnswVectorIndex {
    * 获取所有索引中的记忆
    * @returns 所有记忆的数组
    */
-  getAllMemories(): Memory[] {
+  async getAllMemories(): Promise<Memory[]> {
+    await this.ensureInitialized();
     return Array.from(this.memories.values()).map(item => item.memory);
   }
 
@@ -244,7 +318,8 @@ export class HnswVectorIndex {
    * 获取索引中的记忆数量
    * @returns 记忆数量
    */
-  getSize(): number {
+  async getSize(): Promise<number> {
+    await this.ensureInitialized();
     return this.memories.size;
   }
 
@@ -254,6 +329,8 @@ export class HnswVectorIndex {
    * @returns 是否成功保存
    */
   async saveIndex(filePath?: string): Promise<boolean> {
+    await this.ensureInitialized();
+    
     const indexPath = filePath || this.indexPath;
     
     if (!indexPath || !this.index) {
@@ -262,17 +339,10 @@ export class HnswVectorIndex {
     }
 
     try {
-      // 确保目录存在
-      const dir = this.pathUtils.dirname(indexPath);
-      if (!(await this.fs.exists(dir))) {
-        await this.fs.mkdir(dir, { recursive: true });
-      }
-
       // 保存索引
       this.index.writeIndex(indexPath);
       
-      // 保存元数据
-      const metadataPath = `${indexPath}.meta.json`;
+      // 准备元数据
       const metadata = {
         dimensions: this.dimensions,
         count: this.currentCount,
@@ -281,7 +351,13 @@ export class HnswVectorIndex {
         memories: Array.from(this.memories.entries())
       };
       
-      await this.fs.writeFile(metadataPath, JSON.stringify(metadata));
+      // 保存元数据
+      const metadataPath = `${indexPath}.meta.json`;
+      const metadataStr = JSON.stringify(metadata);
+      this.hnswlib.EmscriptenFileSystemManager.writeFile(metadataPath, metadataStr);
+      
+      // 同步到持久存储
+      await this.syncFileSystem('write');
       
       this.logger.info(`索引已保存到: ${indexPath}`);
       return true;
@@ -297,6 +373,8 @@ export class HnswVectorIndex {
    * @returns 是否成功加载
    */
   async loadIndex(filePath?: string): Promise<boolean> {
+    await this.ensureInitialized();
+    
     const indexPath = filePath || this.indexPath;
     
     if (!indexPath || !this.index) {
@@ -304,20 +382,30 @@ export class HnswVectorIndex {
       return false;
     }
 
+    if (this.indexLoaded) {
+      return true;
+    }
+
     try {
+      // 从持久存储同步
+      await this.syncFileSystem('read');
+      
       // 检查索引文件是否存在
-      if (!(await this.fs.exists(indexPath))) {
+      const exists = this.hnswlib.EmscriptenFileSystemManager.checkFileExists(indexPath);
+      if (!exists) {
         this.logger.warn(`索引文件不存在: ${indexPath}`);
         return false;
       }
 
       // 加载索引
-      this.index.readIndex(indexPath);
+      this.index.readIndex(indexPath, this.maxElements, true);
       
       // 加载元数据
       const metadataPath = `${indexPath}.meta.json`;
-      if (await this.fs.exists(metadataPath)) {
-        const metadataStr = await this.fs.readFile(metadataPath);
+      const metadataExists = this.hnswlib.EmscriptenFileSystemManager.checkFileExists(metadataPath);
+      
+      if (metadataExists) {
+        const metadataStr = this.hnswlib.EmscriptenFileSystemManager.readFile(metadataPath);
         const metadata = JSON.parse(metadataStr);
         
         // 恢复映射关系
@@ -340,28 +428,60 @@ export class HnswVectorIndex {
         }
       }
       
-      this.logger.info(`索引已加载，维度: ${this.dimensions}, 记忆数量: ${this.getSize()}`);
+      this.indexLoaded = true;
+      this.logger.info(`索引已加载，维度: ${this.dimensions}, 记忆数量: ${this.memories.size}`);
       return true;
     } catch (error) {
       this.logger.error('加载索引失败:', error);
       
       // 加载失败时重新初始化
-      this.initIndex();
+      this.index.initIndex(this.maxElements, this.M, this.efConstruction, 100);
+      this.index.setEfSearch(Math.max(this.efConstruction, 50));
       return false;
     }
   }
 
   /**
+   * 同步文件系统
+   * 将虚拟文件系统与IndexedDB同步
+   * @param direction 同步方向，'read'从IndexedDB读取，'write'写入IndexedDB
+   */
+  private async syncFileSystem(direction: 'read' | 'write'): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        this.hnswlib.EmscriptenFileSystemManager.syncfs(direction === 'read', (err: any) => {
+          if (err) {
+            this.logger.error(`同步文件系统失败(${direction}):`, err);
+            reject(err);
+          } else {
+            this.logger.debug(`文件系统同步完成(${direction})`);
+            resolve();
+          }
+        });
+      } catch (error) {
+        this.logger.error(`启动文件系统同步失败(${direction}):`, error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
    * 清空索引
    */
-  clear(): void {
+  async clear(): Promise<void> {
+    await this.ensureInitialized();
+    
     this.memories.clear();
     this.idToIndex.clear();
     this.indexToId.clear();
     this.currentCount = 0;
+    this.indexLoaded = false;
     
     // 重新初始化索引
-    this.initIndex();
+    if (this.index) {
+      this.index.initIndex(this.maxElements, this.M, this.efConstruction, 100);
+      this.index.setEfSearch(Math.max(this.efConstruction, 50));
+    }
     
     this.logger.info('索引已清空');
   }

@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
-import { AIModel, Context, Decision, ModelConfig } from '../types';
+import { AIModel, Context, Decision } from '../types';
+import { ModelConfig } from '../types/config';
 import { Logger } from '../utils/logger';
 
 export class OpenAIModel implements AIModel {

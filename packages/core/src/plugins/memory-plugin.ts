@@ -142,10 +142,10 @@ export class MemoryPlugin {
                 .filter(m => m.content.toLowerCase().includes(query.toLowerCase()))
                 .slice(0, limit);
             } else {
-              memories = await this.memorySystem.searchMemoriesByContent(query, limit);
+              memories = await this.memorySystem.searchMemories(query, limit);
             }
           } else {
-            memories = await this.memorySystem.searchMemoriesByContent(query, limit);
+            memories = await this.memorySystem.searchMemories(query, limit);
           }
           
           const formattedMemories = memories.map(memory => {
@@ -197,7 +197,7 @@ export class MemoryPlugin {
             }
           }
           
-          const memories = await this.memorySystem.getRecentMemories(limit, memoryType);
+          const memories = memoryType ? await this.memorySystem.getMemoriesByType(memoryType) : await this.memorySystem.getRecentMemories(limit);
           
           const formattedMemories = memories.map(memory => {
             return {
@@ -244,7 +244,7 @@ export class MemoryPlugin {
         handler: async () => {
           this.logger.warn('清空所有记忆');
           
-          await this.memorySystem.clearAllMemories();
+          await this.memorySystem.clearMemories();
           return {
             success: true,
             message: '所有记忆已清空'
