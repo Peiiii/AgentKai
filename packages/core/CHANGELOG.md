@@ -1,5 +1,11 @@
 # @agentkai/core
 
+## 2.0.3
+
+### Patch Changes
+
+- fix test
+
 ## 2.0.2
 
 ### Patch Changes

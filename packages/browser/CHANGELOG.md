@@ -1,5 +1,13 @@
 # @agentkai/browser
 
+## 2.0.3
+
+### Patch Changes
+
+- fix test
+- Updated dependencies
+    - @agentkai/core@2.0.3
+
 ## 2.0.2
 
 ### Patch Changes
