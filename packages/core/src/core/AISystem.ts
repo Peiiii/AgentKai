@@ -68,7 +68,6 @@ export class BaseAISystem {
 
     createEmbeddingProvider(): EmbeddingProvider {
         const config = this.config!;
-        console.log('[createEmbeddingProvider] config', config);
         return new OpenAIEmbeddingProvider(
             config.modelConfig.apiKey,
             config.modelConfig.embeddingModel || 'text-embedding-ada-002',
