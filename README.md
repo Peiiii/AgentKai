@@ -143,13 +143,14 @@ agentkai --log-level silent goals --list  # 静默模式（仅输出命令结果
 您可以在自己的项目中使用AgentKai作为库：
 
 ```javascript
-// ESM
-import { AISystem, Logger } from '@agentkai/core';
-import { OpenAIModel } from '@agentkai/node';
+// Node.js环境 (ESM)
+import { AISystem, OpenAIModel, Logger } from '@agentkai/node';
 
-// CommonJS
-const { AISystem, Logger } = require('@agentkai/core');
-const { OpenAIModel } = require('@agentkai/node');
+// Node.js环境 (CommonJS)
+const { AISystem, OpenAIModel, Logger } = require('@agentkai/node');
+
+// 浏览器环境
+// import { AISystem, OpenAIModel, Logger } from '@agentkai/browser';
 
 // 初始化配置
 const config = {
@@ -188,17 +189,21 @@ main().catch(console.error);
 
 ## 使用API
 
-AgentKai提供了多个核心组件，可以单独使用或组合使用：
+AgentKai提供了多个核心组件，可以根据不同环境单独使用或组合使用：
 
 ```javascript
+// Node.js环境下使用
+import { MemorySystem, GoalManager, Logger } from '@agentkai/node';
+
+// 或者浏览器环境下使用
+import { MemorySystem, GoalManager, Logger } from '@agentkai/browser';
+
 // 记忆系统
-import { MemorySystem } from '@agentkai/core';
 const memorySystem = new MemorySystem(config.memoryConfig);
 await memorySystem.initialize();
 await memorySystem.addMemory('这是一条重要记忆');
 
 // 目标管理
-import { GoalManager } from '@agentkai/core';
 const goalManager = new GoalManager();
 await goalManager.addGoal({
   description: '完成项目文档',
@@ -206,11 +211,12 @@ await goalManager.addGoal({
 });
 
 // 日志系统
-import { Logger, LogLevel } from '@agentkai/core';
 const logger = new Logger('MyComponent');
 logger.info('系统初始化完成');
 logger.debug('调试信息', { detail: 'value' });
 ```
+
+> **注意**: 尽量避免直接从`@agentkai/core`包引入，而是根据您的环境从对应的包(`@agentkai/node`或`@agentkai/browser`)引入所需组件。这样可以确保使用环境适配后的正确实现。
 
 ## 项目结构
 
