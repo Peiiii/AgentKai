@@ -92,10 +92,24 @@ export class AgentService {
         // 目前只是模拟AI响应，稍后会连接到实际的AgentKai AI系统
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
+        // 根据用户输入生成不同的回复
+        let aiResponse = '';
+        if (content.includes('你好') || content.includes('嗨') || content.includes('hi')) {
+            aiResponse = '你好！有什么我可以帮助你的吗？';
+        } else if (content.includes('?') || content.includes('？')) {
+            aiResponse = `关于"${content}"的问题，我需要收集更多信息才能给出准确答案。请提供更多细节。`;
+        } else if (content.toLowerCase().includes('react')) {
+            aiResponse = 'React是一个流行的JavaScript库，用于构建用户界面。你想了解React的哪方面知识呢？';
+        } else if (content.includes('谢谢') || content.includes('感谢')) {
+            aiResponse = '不客气！随时为你服务。';
+        } else {
+            aiResponse = `我收到了你的消息: "${content}"。我正在处理这个信息，有什么具体问题我可以帮助解答的吗？`;
+        }
+
         // 创建AI回复
         const agentMessage: Message = {
             id: `agent_${Date.now()}`,
-            content: `我收到了你的消息: "${content}"。这是一个模拟回复，稍后将连接到实际的AI系统。`,
+            content: aiResponse,
             isAgent: true,
             timestamp: new Date(),
         };

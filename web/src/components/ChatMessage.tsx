@@ -30,20 +30,21 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} max-w-3/4`}>
+      <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} max-w-[75%]`}>
         <Avatar
           icon={isUser ? <UserOutlined /> : <RobotOutlined />}
-          className={`${isUser ? 'ml-2' : 'mr-2'}`}
+          className={`${isUser ? 'ml-2' : 'mr-2'} flex-shrink-0`}
           style={{ backgroundColor: isUser ? '#1677ff' : '#52c41a' }}
         />
-        <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+        <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-full`}>
           <div
-            className={`p-3 rounded-lg ${
+            className={`p-3 rounded-lg break-words overflow-hidden ${
               isUser ? 'bg-blue-100 text-right' : 'bg-gray-100'
             }`}
+            style={{ wordBreak: 'break-word' }}
           >
             <div 
-              className="markdown-body" 
+              className="markdown-body overflow-auto" 
               dangerouslySetInnerHTML={{ __html: renderedContent }} 
             />
           </div>

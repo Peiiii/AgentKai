@@ -22,7 +22,8 @@ export class OpenAIEmbeddingProvider implements EmbeddingProvider {
     constructor(apiKey: string, model: string = 'text-embedding-ada-002', baseURL?: string, dimensions: number = 1024) {
         this.client = new OpenAI({
             apiKey: apiKey,
-            baseURL: baseURL
+            baseURL: baseURL,
+            dangerouslyAllowBrowser: true,
         });
         this.model = model;
         this.dimensions = dimensions; 

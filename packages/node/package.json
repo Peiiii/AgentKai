@@ -1,6 +1,6 @@
 {
   "name": "@agentkai/node",
-  "version": "2.0.3",
+  "version": "2.0.8",
   "description": "AgentKai的Node.js环境特定实现",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

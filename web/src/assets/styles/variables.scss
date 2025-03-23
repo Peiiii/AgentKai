@@ -1,0 +1,93 @@
+// 主题和响应式设计的基础变量
+:root {
+  // 颜色变量
+  --primary-color: #1677ff;
+  --secondary-color: #52c41a;
+  --background-color: #f5f5f5;
+  --text-color: #333;
+  --border-color: #e8e8e8;
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --error-color: #ff4d4f;
+  
+  // 断点变量
+  --mobile-breakpoint: 768px;
+  --tablet-breakpoint: 1024px;
+  
+  // 布局变量
+  --container-width: 100%;
+  --sidebar-width: 250px;
+  --header-height: 60px;
+  
+  // 字体大小
+  --font-size-small: 12px;
+  --font-size-base: 14px;
+  --font-size-large: 16px;
+  --font-size-xlarge: 20px;
+  
+  // 边距和间距
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  // 边框和圆角
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+  --border-radius-lg: 8px;
+  --border-width: 1px;
+}
+
+// 媒体查询混合宏
+@mixin mobile {
+  @media (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: 768px) and (max-width: 1023px) {
+    @content;
+  }
+}
+
+@mixin tablet-up {
+  @media (min-width: 768px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1024px) {
+    @content;
+  }
+}
+
+// 布局相关混合宏
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// 暗黑模式主题
+@mixin dark-theme {
+  :root {
+    --background-color: #141414;
+    --text-color: #f0f0f0;
+    --border-color: #434343;
+    // 其他暗色主题变量
+  }
+}

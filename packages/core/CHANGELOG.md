@@ -1,5 +1,29 @@
 # @agentkai/core
 
+## 2.0.8
+
+### Patch Changes
+
+- fix
+
+## 2.0.7
+
+### Patch Changes
+
+- fix error
+
+## 2.0.6
+
+### Patch Changes
+
+- update
+
+## 2.0.5
+
+### Patch Changes
+
+- fix exports
+
 ## 2.0.4
 
 ### Patch Changes

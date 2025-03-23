@@ -1,2 +1,6 @@
 packages:
-  - 'packages/*'
+  - 'packages/core'
+  - 'packages/browser'
+  - 'packages/node'
+  - 'packages/cli'
+  - 'web'

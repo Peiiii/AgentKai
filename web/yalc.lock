@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "packages": {
+    "@agentkai/browser": {
+      "signature": "9a3cdb4171ae9be16bf6d0e0e71d1025",
+      "file": true,
+      "replaced": "latest"
+    }
+  }
+}

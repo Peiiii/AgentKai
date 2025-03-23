@@ -52,3 +52,45 @@ export default tseslint.config({
   },
 })
 ```
+
+# AgentKai Web 界面
+
+这是AgentKai智能助手的Web用户界面实现，基于React + TypeScript + Vite构建。
+
+## 环境变量配置
+
+项目使用环境变量来配置AI系统的各项参数。请按照以下步骤进行配置：
+
+1. 在项目根目录复制`.env.example`文件为`.env`：
+
+```bash
+cp .env.example .env
+```
+
+2. 编辑`.env`文件，填入你的API密钥和其他配置：
+
+```
+# 必填项
+VITE_OPENAI_API_KEY=你的OpenAI API密钥
+
+# 可选项（已提供默认值）
+VITE_MODEL_NAME=gpt-4o
+VITE_TEMPERATURE=0.7
+# 更多配置...
+```
+
+### 可配置的环境变量
+
+| 变量名 | 说明 | 默认值 |
+|-------|------|-------|
+| VITE_OPENAI_API_KEY | OpenAI API密钥 | - |
+| VITE_MODEL_NAME | 使用的大语言模型 | gpt-4o |
+| VITE_TEMPERATURE | 模型温度参数 | 0.7 |
+| VITE_MAX_TOKENS | 最大输出token数 | 2048 |
+| VITE_OPENAI_API_BASE_URL | OpenAI API基础URL | https://api.openai.com/v1 |
+| VITE_EMBEDDING_MODEL | 嵌入模型名称 | text-embedding-v3 |
+| VITE_EMBEDDING_DIMENSIONS | 嵌入向量维度 | 1024 |
+| VITE_APP_NAME | 应用名称 | 凯 |
+| VITE_DEFAULT_LANGUAGE | 默认语言 | zh-CN |
+
+## 开发指南

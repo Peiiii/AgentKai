@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input, Button, List, Card, Spin, notification, Layout, Typography } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
 import { App as AntApp } from 'antd';
@@ -14,6 +14,7 @@ const { Title, Paragraph } = Typography;
 function ChatApp() {
   const [inputValue, setInputValue] = useState('');
   const [siderCollapsed, setSiderCollapsed] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { 
     messages, 
     memories, 
@@ -25,6 +26,16 @@ function ChatApp() {
     loadMemories,
     setGoals 
   } = useChatStore();
+
+  // 滚动到最新消息
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // 当消息更新时滚动到底部
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -161,6 +172,7 @@ function ChatApp() {
                   {messages.map(message => (
                     <ChatMessage key={message.id} message={message} />
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
               )}
               
