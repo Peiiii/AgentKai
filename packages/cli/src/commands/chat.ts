@@ -1,9 +1,7 @@
-import { AISystem } from '@agentkai/core';
-import { Memory } from '@agentkai/core';
-import * as readline from 'readline';
-import { Logger, Colors } from '@agentkai/core';
-import * as path from 'path';
+import { AISystem, Colors, Logger, Memory } from '@agentkai/node';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as readline from 'readline';
 
 export class ChatCommand {
     private logger: Logger;

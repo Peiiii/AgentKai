@@ -2,7 +2,7 @@ import { ToolRegistration } from '../services/tools';
 import { Logger } from '../utils/logger';
 import { GoalManager } from '../goals/GoalManager';
 import { Goal, GoalStatus } from '../types';
-import { AISystem } from '../core/AISystem';
+import { BaseAISystem } from '../core/AISystem';
 
 /**
  * 目标管理工具插件，提供目标相关功能
@@ -11,7 +11,7 @@ export class GoalsPlugin {
   private logger: Logger;
   private goalManager: GoalManager;
 
-  constructor(aiSystem: AISystem) {
+  constructor(aiSystem: BaseAISystem) {
     this.logger = new Logger('GoalsPlugin');
     this.goalManager = aiSystem.getGoalManager();
   }

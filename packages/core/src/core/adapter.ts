@@ -1,13 +1,13 @@
-import { AISystem } from './AISystem';
+import { BaseAISystem } from './AISystem';
 import { CreateMemoryInput, Memory } from '../types/memory';
 
 /**
  * 系统适配器，提供AISystem与新接口的兼容层
  */
 export class SystemAdapter {
-  private aiSystem: AISystem;
+  private aiSystem: BaseAISystem;
 
-  constructor(aiSystem: AISystem) {
+  constructor(aiSystem: BaseAISystem) {
     this.aiSystem = aiSystem;
   }
 

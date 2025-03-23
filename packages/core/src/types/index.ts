@@ -118,21 +118,6 @@ export interface SystemState {
     };
 }
 
-// 配置接口
-export interface Config {
-    modelConfig: ModelConfig;
-    memoryConfig: MemoryConfig;
-    appConfig: AppConfig;
-}
-
-// 应用配置接口
-export interface AppConfig {
-    name: string;           // AI助手名称
-    version: string;        // 应用版本
-    defaultLanguage: string; // 默认语言
-    dataPath?: string;      // 数据存储路径，如果未指定则使用默认路径
-}
-
 // 目标状态枚举
 export enum GoalStatus {
     ACTIVE = 'active',
@@ -141,45 +126,11 @@ export enum GoalStatus {
     PENDING = 'pending'
 }
 
-// 存储提供者接口 - 完全通用的存储接口，不关心集合或具体存储内容
-export interface StorageProvider {
-    // 基础CRUD方法
-    save(id: string, data: any): Promise<void>;
-    get(id: string): Promise<any>;
-    delete(id: string): Promise<void>;
-    list(): Promise<any[]>;
-    query(filter?: Record<string, any>): Promise<any[]>;
-    clear(): Promise<void>;
-}
-
 // AI模型接口
 export interface AIModel {
-    generateEmbedding(text: string): Promise<Vector>;
     generateText(prompt: string): Promise<string>;
     generateDecision(context: Context): Promise<Decision>;
     generateResponse(messages: string[]): Promise<{ response: string; tokens: { prompt: number; completion: number } }>;
-}
-
-// 模型配置接口
-export interface ModelConfig {
-    model: string;
-    apiKey: string;
-    modelName: string;
-    maxTokens: number;
-    temperature: number;
-    apiBaseUrl: string;
-    embeddingModel: string;
-    embeddingBaseUrl: string;
-    embeddingDimensions: number;
-}
-
-// 记忆配置接口
-export interface MemoryConfig {
-    vectorDimensions: number;
-    maxMemories: number;
-    similarityThreshold: number;
-    shortTermCapacity: number;
-    importanceThreshold: number;
 }
 
 // 系统响应接口
@@ -205,4 +156,22 @@ export enum MemoryType {
     CONVERSATION = 'conversation',
     FACT = 'fact',
     PLAN = 'plan'
-} 
+}
+
+// // 搜索相关类型
+// export interface SearchOptions {
+//   limit?: number;             // 搜索结果最大数量
+//   minSimilarity?: number;     // 最小相似度阈值
+//   timeRange?: {               // 时间范围
+//     start: Timestamp;
+//     end: Timestamp;
+//   };
+//   types?: MemoryType[];       // 记忆类型过滤
+//   metadata?: Record<string, any>; // 元数据过滤
+// }
+
+// export interface SearchResult {
+//   results: Memory[];          // 搜索结果记忆列表
+//   totalResults: number;       // 结果总数
+//   metadata?: Record<string, any>; // 搜索元数据
+// } 

@@ -1,26 +1,21 @@
 #!/usr/bin/env node
+import { AISystem, Logger, wrapError } from '@agentkai/node';
 import { Command } from 'commander';
 import dotenv from 'dotenv';
 import { ChatCommand } from './commands/chat';
-import { GoalCommand } from './commands/goals';
-import { createLayerTestCommand } from './commands/layer-test';
-import { MemoryCommand } from './commands/memory';
 import { ConfigCommand } from './commands/config';
-import { 
-  AISystem, 
-  Logger, 
-  wrapError
-} from '@agentkai/core';
+import { GoalCommand } from './commands/goals';
+import { MemoryCommand } from './commands/memory';
 
 // 导入自定义服务
-import { CLIConfigService, SystemService, LoggerService } from './services';
+import { CLIConfigService, LoggerService, SystemService } from './services';
 
 // 加载环境变量
 dotenv.config();
 
 // 创建服务实例
-const cliConfigService = new CLIConfigService();
 const systemService = SystemService.getInstance();
+const cliConfigService = new CLIConfigService();
 const loggerService = new LoggerService();
 
 // 创建日志记录器
@@ -39,7 +34,7 @@ program
         const options = thisCommand.opts();
         // 设置全局日志级别
         Logger.setGlobalLogLevel(options.logLevel);
-        
+
         // 配置日志格式
         loggerService.configureLoggerFormat(options);
     })
@@ -89,13 +84,13 @@ async function initializeSystem(): Promise<AISystem> {
     try {
         // 1. 初始化配置服务
         await cliConfigService.initialize();
-        
+
         // 2. 验证配置
         const isConfigValid = await cliConfigService.validateAndHandleConfigErrors();
         if (!isConfigValid) {
             process.exit(1);
         }
-        
+
         // 3. 初始化系统
         const config = cliConfigService.getCoreConfigService().getFullConfig();
         return await systemService.initializeSystem(config);
@@ -192,7 +187,7 @@ program
             });
 
             logger.debug('memory命令', options);
-            
+
             // 初始化系统
             const system = await initializeSystem();
             const command = new MemoryCommand(system);
@@ -236,10 +231,10 @@ program
             });
 
             logger.debug('config命令', options);
-            
+
             // 初始化配置服务
             await cliConfigService.initialize();
-            
+
             // 执行配置命令
             const configCommand = new ConfigCommand(cliConfigService);
             await configCommand.execute(options, command.args);
@@ -249,10 +244,6 @@ program
             process.exit(1);
         }
     });
-
-// 注册三层架构测试命令（仅在开发环境使用）
-const layerTestCommand = createLayerTestCommand();
-program.addCommand(layerTestCommand);
 
 // 解析命令行参数
 program.parse(process.argv);

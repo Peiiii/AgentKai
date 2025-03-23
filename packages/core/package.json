@@ -1,6 +1,6 @@
 {
   "name": "@agentkai/core",
-  "version": "1.6.0",
+  "version": "2.0.1",
   "description": "AgentKai核心包，提供AI助手系统的基础功能",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -40,11 +40,12 @@
     "dotenv": "^16.4.5",
     "hnswlib-node": "^2.1.1",
     "openai": "^4.89.0",
+    "rxjs": "^7.8.2",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
-    "@types/node": "^20.11.24",
+    "@types/node": "^20.17.25",
     "@types/uuid": "^9.0.8",
     "jest": "^29.7.0",
     "rimraf": "^5.0.5",
