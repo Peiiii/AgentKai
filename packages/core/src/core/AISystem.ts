@@ -1,10 +1,10 @@
 import { GoalManager } from '../goals/GoalManager';
 import { MemorySystem } from '../memory/MemorySystem';
-import { EmbeddingProviderFactory } from '../memory/embedding/EmbeddingProviderFactory';
-import { SearchProviderFactory } from '../memory/embedding/SearchProviderFactory';
-import { ConfigService } from '../services/config';
+import { EmbeddingProvider, OpenAIEmbeddingProvider } from '../memory/embedding';
+import { ISearchProvider } from '../memory/embedding/ISearchProvider';
+import { BaseConfigService } from '../services/config';
 import { ToolService } from '../services/tools';
-import { StorageManager } from '../storage/StorageManager';
+import { StorageProvider } from '../storage/StorageProvider';
 import { AIModel, Goal, GoalStatus, Memory, MemoryType, SystemResponse } from '../types';
 import { AgentKaiConfig } from '../types/config';
 import { ModelError, wrapError } from '../utils/errors';
@@ -24,7 +24,7 @@ export interface Plugin {
 /**
  * AISystem作为核心协调类，负责整合和管理各个子系统
  */
-export class AISystem {
+export class BaseAISystem {
     private memory: MemorySystem;
     private goals: GoalManager;
     private model: AIModel;
@@ -32,7 +32,6 @@ export class AISystem {
     private performance: PerformanceMonitor;
     private requestTimeoutMs: number = 30000; // 默认请求超时时间为30秒
     private config: AgentKaiConfig | null = null;
-    private storageFactory: StorageManager;
 
     // 新的组件
     private conversation: ConversationManager;
@@ -40,41 +39,68 @@ export class AISystem {
     private responseProcessor: ResponseProcessor;
     private promptBuilder: PromptBuilder;
 
+    private configService: BaseConfigService;
+
+    createConfigService(): BaseConfigService {
+        throw new Error('Not implemented');
+    }
+
+    getConfigService(): BaseConfigService {
+        return this.configService;
+    }
+
+    createMemorySystem(): MemorySystem {
+        const embeddingProvider = this.createEmbeddingProvider();
+
+        // 创建内存存储
+        const memoryStorage = this.createMemoryStorage();
+
+        // 使用SearchProviderFactory创建搜索提供者
+        const searchProvider = this.createMemorySearchProvider();
+        // 初始化记忆系统
+        this.memory = new MemorySystem(memoryStorage, embeddingProvider, searchProvider);
+        return this.memory;
+    }
+
+    createMemoryStorage(): StorageProvider<Memory> {
+        throw new Error('Not implemented');
+    }
+
+    createEmbeddingProvider(): EmbeddingProvider {
+        const config = this.config!;
+        return new OpenAIEmbeddingProvider(
+            config.modelConfig.apiKey,
+            config.modelConfig.embeddingModel || 'text-embedding-ada-002',
+            config.modelConfig.embeddingBaseUrl,
+            config.modelConfig.embeddingDimensions || 1024
+        );
+    }
+
+    createMemorySearchProvider(): ISearchProvider {
+        throw new Error('Not implemented');
+    }
+
+    createGoalManager(): GoalManager {
+        const goalStorage = this.createGoalStorage();
+        return new GoalManager(goalStorage);
+    }
+
+    createGoalStorage(): StorageProvider<Goal> {
+        throw new Error('Not implemented');
+    }
+
     constructor(config: AgentKaiConfig, model: AIModel, plugins: Plugin[] = []) {
         this.logger = new Logger('AISystem');
         this.performance = new PerformanceMonitor('AISystem');
         this.config = config;
         this.model = model;
-
-        // 创建存储工厂
-        const dataPath = config.appConfig.dataPath || 'data';
-        this.storageFactory = new StorageManager(dataPath);
-        this.logger.info(`使用数据存储路径: ${dataPath}`);
-
-        // 创建嵌入提供者 - 检查是否应该使用真实嵌入API
-        const useRealEmbeddings = config.memoryConfig?.importanceThreshold > 0 || false;
-        const embeddingType = useRealEmbeddings ? 'openai' : 'fake';
-        const embeddingProvider = EmbeddingProviderFactory.createProvider(
-            embeddingType,
-            config.modelConfig
-        );
-
-        // 创建内存存储
-        const memoryStorage = this.storageFactory.getMemoryStorage();
-
-        // 使用SearchProviderFactory创建搜索提供者
-        const searchProvider = SearchProviderFactory.createSearchProvider(
-            'memory',
-            embeddingProvider,
-            memoryStorage,
-            config.modelConfig.embeddingDimensions
-        );
+        this.configService = this.createConfigService();
 
         // 初始化记忆系统
-        this.memory = new MemorySystem(memoryStorage, embeddingProvider, searchProvider);
+        this.memory = this.createMemorySystem();
 
         // 初始化目标系统
-        this.goals = new GoalManager(this.storageFactory.getGoalStorage());
+        this.goals = this.createGoalManager();
 
         // 初始化新组件
         this.conversation = new ConversationManager(10); // 保留最近10条消息
@@ -321,9 +347,5 @@ export class AISystem {
 
     getToolService(): ToolService {
         return ToolService.getInstance();
-    }
-
-    getConfigService(): ConfigService {
-        return ConfigService.getInstance();
     }
 }

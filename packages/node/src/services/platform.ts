@@ -69,6 +69,10 @@ export class NodeEnvProvider implements EnvProvider {
  * Node.js环境的路径工具实现
  */
 export class NodePathUtils implements PathUtils {
+    home(): string {
+        return os.homedir();
+    }
+
     join(...paths: string[]): string {
         return path.join(...paths);
     }

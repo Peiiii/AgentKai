@@ -91,6 +91,11 @@ export interface EnvProvider {
  */
 export interface PathUtils {
   /**
+   * 获取用户主目录
+   */
+  home(): string;
+
+  /**
    * 连接路径片段
    * @param paths 路径片段
    */

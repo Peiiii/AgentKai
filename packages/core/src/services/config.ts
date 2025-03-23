@@ -1,8 +1,17 @@
-import { platform } from '../platform';
-import { EnvProvider, FileSystem, PathUtils, PlatformInfo } from '../platform/interfaces';
-import { ModelConfig, MemoryConfig, AppConfig, AgentKaiConfig } from '../types/config';
 import {
+    EnvProvider,
+    FileSystem,
+    PathUtils,
+    PlatformInfo,
+    PlatformServices,
+} from '../platform/interfaces';
+import {
+    AgentKaiConfig,
+    AppConfig,
     ConfigValidationError,
+    IConfigService,
+    MemoryConfig,
+    ModelConfig,
 } from '../types/config';
 import { Logger } from '../utils/logger';
 
@@ -13,16 +22,18 @@ interface ConfigOptions {
 /**
  * 配置服务，用于管理所有配置
  */
-export class ConfigService {
-    private static instance: ConfigService;
+export abstract class BaseConfigService implements IConfigService {
+    private static instance: BaseConfigService;
     private config: Map<string, any> = new Map();
     private logger: Logger;
 
+    abstract getPlatform(): PlatformServices;
+
     // 平台服务
-    private fs: FileSystem = platform.fs;
-    private env: EnvProvider = platform.env;
-    private pathUtils: PathUtils = platform.path;
-    private platformInfo: PlatformInfo = platform.platformInfo;
+    private fs: FileSystem = this.getPlatform().fs;
+    private env: EnvProvider = this.getPlatform().env;
+    private pathUtils: PathUtils = this.getPlatform().path;
+    private platformInfo: PlatformInfo = this.getPlatform().platformInfo;
 
     // 配置相关路径
     private configDir: string;
@@ -53,13 +64,14 @@ export class ConfigService {
         '.agentkai'
     );
 
-    private constructor(options: ConfigOptions = {}) {
+    constructor(options: ConfigOptions = {}) {
         this.logger = new Logger('ConfigService');
+        this.ensureDirExists();
         // 设置baseDir
         this.baseDir = this.platformInfo.isNode()
             ? this.pathUtils.dirname(this.pathUtils.dirname(__dirname))
             : '/';
-        
+
         const appDataDir = this.getUserAppDataDir();
         this.dataDir = this.pathUtils.join(appDataDir, '.agentkai');
         // 配置目录路径
@@ -74,16 +86,10 @@ export class ConfigService {
         this.packageJsonPath = this.pathUtils.join(this.baseDir, 'package.json');
     }
 
-    /**
-     * 获取ConfigService单例
-     */
-    static getInstance(): ConfigService {
-        if (!ConfigService.instance) {
-            ConfigService.instance = new ConfigService();
-        }
-        return ConfigService.instance;
+    ensureDirExists(): void {
+        throw new Error('Not implemented');
     }
-
+    
     /**
      * 初始化配置服务
      */
@@ -93,19 +99,19 @@ export class ConfigService {
             // 按优先级从低到高加载配置
             // 1. 默认配置（最低优先级）
             await this.loadDefaultConfig();
-            
+
             // 2. 用户配置（中等优先级）
             await this.loadUserConfig();
-            
+
             // 3. 环境变量配置（最高优先级）
             await this.loadEnvConfig();
-            
+
             // 合并配置 - 按优先级从低到高合并
             this.mergeConfigs();
 
             // 验证配置
             const validationResult = this.validateConfig();
-            
+
             if (validationResult !== true) {
                 this.logger.error('配置验证失败:', validationResult);
                 return false;
@@ -170,20 +176,20 @@ export class ConfigService {
                         apiBaseUrl: 'https://api.openai.com/v1',
                         embeddingModel: 'text-embedding-v3',
                         embeddingBaseUrl: 'https://api.openai.com/v1',
-                        embeddingDimensions: 1024
+                        embeddingDimensions: 1024,
                     },
                     memoryConfig: {
                         vectorDimensions: 1024,
                         maxMemories: 1000,
                         similarityThreshold: 0.7,
                         shortTermCapacity: 10,
-                        importanceThreshold: 0.5
+                        importanceThreshold: 0.5,
                     },
                     appConfig: {
                         name: '凯',
                         version: '1.0.0',
                         defaultLanguage: 'zh-CN',
-                        dataPath: this.dataDir
+                        dataPath: this.dataDir,
                     },
                 };
             }
@@ -225,21 +231,21 @@ export class ConfigService {
                 apiBaseUrl: '',
                 embeddingModel: '',
                 embeddingBaseUrl: '',
-                embeddingDimensions: 1024
+                embeddingDimensions: 1024,
             },
             memoryConfig: {
                 vectorDimensions: 1024,
                 maxMemories: 1000,
                 similarityThreshold: 0.7,
-                shortTermCapacity: 10, 
-                importanceThreshold: 0.5
+                shortTermCapacity: 10,
+                importanceThreshold: 0.5,
             },
             appConfig: {
                 name: '',
                 version: '',
                 defaultLanguage: '',
-                dataPath: ''
-            }
+                dataPath: '',
+            },
         } as AgentKaiConfig;
 
         // 从环境变量加载配置
@@ -251,23 +257,30 @@ export class ConfigService {
                 temperature: this.parseNumber(this.env.get('AI_TEMPERATURE')) || 0.7,
                 maxTokens: this.parseNumber(this.env.get('AI_MAX_TOKENS')) || 2048,
                 modelName: this.env.get('AI_MODEL') || 'qwen-max-latest',
-                apiBaseUrl: this.env.get('AI_API_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                apiBaseUrl:
+                    this.env.get('AI_API_BASE_URL') ||
+                    'https://dashscope.aliyuncs.com/compatible-mode/v1',
                 embeddingModel: this.env.get('AI_EMBEDDING_MODEL') || 'text-embedding-v3',
-                embeddingBaseUrl: this.env.get('AI_EMBEDDING_BASE_URL') || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-                embeddingDimensions: this.parseNumber(this.env.get('AI_EMBEDDING_DIMENSIONS')) || 1024
+                embeddingBaseUrl:
+                    this.env.get('AI_EMBEDDING_BASE_URL') ||
+                    'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                embeddingDimensions:
+                    this.parseNumber(this.env.get('AI_EMBEDDING_DIMENSIONS')) || 1024,
             },
             memoryConfig: {
                 vectorDimensions: this.parseNumber(this.env.get('AI_VECTOR_DIMENSIONS')) || 1024,
                 maxMemories: this.parseNumber(this.env.get('AI_MAX_MEMORIES')) || 1000,
-                similarityThreshold: this.parseNumber(this.env.get('AI_SIMILARITY_THRESHOLD')) || 0.7,
+                similarityThreshold:
+                    this.parseNumber(this.env.get('AI_SIMILARITY_THRESHOLD')) || 0.7,
                 shortTermCapacity: this.parseNumber(this.env.get('AI_SHORT_TERM_CAPACITY')) || 10,
-                importanceThreshold: this.parseNumber(this.env.get('AI_IMPORTANCE_THRESHOLD')) || 0.5
+                importanceThreshold:
+                    this.parseNumber(this.env.get('AI_IMPORTANCE_THRESHOLD')) || 0.5,
             },
             appConfig: {
                 name: this.env.get('AI_NAME') || '凯',
                 version: this.env.get('AI_VERSION') || '1.0.0',
                 defaultLanguage: this.env.get('AI_DEFAULT_LANGUAGE') || 'zh-CN',
-                dataPath: this.env.get('AI_DATA_DIR') || this.dataDir
+                dataPath: this.env.get('AI_DATA_DIR') || this.dataDir,
             },
         };
 
@@ -492,11 +505,11 @@ export class ConfigService {
      * 获取完整配置
      * @returns 完整配置
      */
-    getFullConfig(): AgentKaiConfig {
-        if (!this.fullConfig) {
+    getFullConfig(options: { allowEmpty: boolean } = { allowEmpty: false }): AgentKaiConfig {
+        if (!this.fullConfig && !options.allowEmpty) {
             throw new Error('配置尚未加载，请先调用 initialize() 方法');
         }
-        return this.fullConfig;
+        return this.fullConfig || ({} as AgentKaiConfig);
     }
 
     /**
@@ -611,7 +624,11 @@ export class ConfigService {
                     'data'
                 )
             ) ||
-            this.pathUtils.join(this.getEnv('HOME') || this.getEnv('USERPROFILE') || '.', '.agentkai', 'data')
+            this.pathUtils.join(
+                this.getEnv('HOME') || this.getEnv('USERPROFILE') || '.',
+                '.agentkai',
+                'data'
+            )
         );
     }
 

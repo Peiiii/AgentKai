@@ -1,8 +1,12 @@
-import { ISearchProvider, SearchOptions, SearchResult } from './ISearchProvider';
-import { EmbeddingProvider } from './EmbeddingProvider';
-import { Logger } from '../../utils/logger';
-import { Memory } from '../../types';
-import { Storage } from '../../storage/Storage';
+import {
+    EmbeddingProvider,
+    ISearchProvider,
+    Logger,
+    Memory,
+    SearchOptions,
+    SearchResult,
+    StorageProvider,
+} from '@agentkai/core';
 
 /**
  * 浏览器环境使用的搜索提供者
@@ -12,7 +16,7 @@ export class BrowserSearchProvider implements ISearchProvider {
     private logger: Logger;
     private indexName: string;
     private embeddingProvider: EmbeddingProvider;
-    private storage: Storage<Memory>;
+    private storage: StorageProvider<Memory>;
     private initialized: boolean = false;
     private dimensions: number;
 
@@ -24,9 +28,9 @@ export class BrowserSearchProvider implements ISearchProvider {
      * @param dimensions 向量维度
      */
     constructor(
-        indexName: string, 
+        indexName: string,
         embeddingProvider: EmbeddingProvider,
-        storage: Storage<Memory>,
+        storage: StorageProvider<Memory>,
         dimensions: number = 1024
     ) {
         this.logger = new Logger('BrowserSearchProvider');
@@ -89,7 +93,7 @@ export class BrowserSearchProvider implements ISearchProvider {
         try {
             // 为查询文本生成嵌入向量
             const vector = await this.embeddingProvider.getEmbedding(query);
-            
+
             // 使用向量搜索
             return this.searchByVector(vector, options);
         } catch (error) {
@@ -106,18 +110,18 @@ export class BrowserSearchProvider implements ISearchProvider {
     async searchByVector(vector: number[], options?: SearchOptions): Promise<SearchResult> {
         try {
             const limit = options?.limit || 10;
-            
+
             // 获取所有记忆
             const memories = await this.storage.list();
-            
+
             // 计算余弦相似度并排序
             const results = memories
-                .filter(memory => memory.embedding && memory.embedding.length > 0)
-                .map(memory => {
+                .filter((memory) => memory.embedding && memory.embedding.length > 0)
+                .map((memory) => {
                     const similarity = this.cosineSimilarity(vector, memory.embedding!);
                     return {
                         ...memory,
-                        metadata: { ...memory.metadata, similarity }
+                        metadata: { ...memory.metadata, similarity },
                     };
                 })
                 .sort((a, b) => {
@@ -126,10 +130,10 @@ export class BrowserSearchProvider implements ISearchProvider {
                     return simB - simA; // 降序排列
                 })
                 .slice(0, limit);
-                
+
             return {
                 results,
-                totalCount: memories.length
+                totalCount: memories.length,
             };
         } catch (error) {
             this.logger.error('向量搜索失败', error);
@@ -156,24 +160,24 @@ export class BrowserSearchProvider implements ISearchProvider {
             this.logger.warn(`向量维度不匹配: ${vecA.length} vs ${vecB.length}`);
             return 0;
         }
-        
+
         let dotProduct = 0;
         let normA = 0;
         let normB = 0;
-        
+
         for (let i = 0; i < vecA.length; i++) {
             dotProduct += vecA[i] * vecB[i];
             normA += vecA[i] * vecA[i];
             normB += vecB[i] * vecB[i];
         }
-        
+
         normA = Math.sqrt(normA);
         normB = Math.sqrt(normB);
-        
+
         if (normA === 0 || normB === 0) {
             return 0;
         }
-        
+
         return dotProduct / (normA * normB);
     }
-} 
+}

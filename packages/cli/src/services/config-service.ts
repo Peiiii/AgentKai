@@ -1,4 +1,9 @@
-import { ConfigValidationError, ConfigService as CoreConfigService, Logger } from '@agentkai/core';
+import {
+    ConfigValidationError,
+    BaseConfigService as CoreConfigService,
+    Logger,
+} from '@agentkai/core';
+import { ConfigService } from '@agentkai/node';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import inquirer from 'inquirer';
@@ -14,7 +19,7 @@ export class CLIConfigService {
 
     constructor() {
         this.logger = new Logger('CLIConfigService');
-        this.coreConfigService = CoreConfigService.getInstance();
+        this.coreConfigService = new ConfigService();
         this.USER_CONFIG_DIR = this.coreConfigService.getUserConfigDir();
     }
 
@@ -169,9 +174,9 @@ export class CLIConfigService {
                 console.log('\n正在保存API密钥...');
                 // 如果用户输入了API密钥，直接保存
                 const result = await this.coreConfigService.saveConfig({
-                    ...this.coreConfigService.getFullConfig(),
+                    ...this.coreConfigService.getFullConfig({ allowEmpty: true }),
                     modelConfig: {
-                        ...this.coreConfigService.getFullConfig().modelConfig,
+                        ...this.coreConfigService.getFullConfig({ allowEmpty: true }).modelConfig,
                         apiKey: keyAnswer.apiKey,
                     },
                 });
@@ -337,7 +342,7 @@ export class CLIConfigService {
                 return;
             }
             const result = await this.coreConfigService.saveConfig({
-                ...this.coreConfigService.getFullConfig(),
+                ...this.coreConfigService.getFullConfig({ allowEmpty: true }),
                 [key]: value,
             });
             if (result) {

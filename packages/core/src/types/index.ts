@@ -126,11 +126,6 @@ export enum GoalStatus {
     PENDING = 'pending'
 }
 
-// 从Storage导入，不要直接定义
-import { Storage } from '../storage/Storage';
-// 为了兼容性保留的类型别名
-export type StorageProvider<T extends { id: string } = any> = Storage<T>;
-
 // AI模型接口
 export interface AIModel {
     generateEmbedding(text: string): Promise<Vector>;
@@ -164,20 +159,20 @@ export enum MemoryType {
     PLAN = 'plan'
 }
 
-// 搜索相关类型
-export interface SearchOptions {
-  limit?: number;             // 搜索结果最大数量
-  minSimilarity?: number;     // 最小相似度阈值
-  timeRange?: {               // 时间范围
-    start: Timestamp;
-    end: Timestamp;
-  };
-  types?: MemoryType[];       // 记忆类型过滤
-  metadata?: Record<string, any>; // 元数据过滤
-}
+// // 搜索相关类型
+// export interface SearchOptions {
+//   limit?: number;             // 搜索结果最大数量
+//   minSimilarity?: number;     // 最小相似度阈值
+//   timeRange?: {               // 时间范围
+//     start: Timestamp;
+//     end: Timestamp;
+//   };
+//   types?: MemoryType[];       // 记忆类型过滤
+//   metadata?: Record<string, any>; // 元数据过滤
+// }
 
-export interface SearchResult {
-  results: Memory[];          // 搜索结果记忆列表
-  totalResults: number;       // 结果总数
-  metadata?: Record<string, any>; // 搜索元数据
-} 
+// export interface SearchResult {
+//   results: Memory[];          // 搜索结果记忆列表
+//   totalResults: number;       // 结果总数
+//   metadata?: Record<string, any>; // 搜索元数据
+// } 

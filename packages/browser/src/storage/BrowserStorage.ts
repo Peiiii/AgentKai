@@ -1,12 +1,11 @@
-import { QueryOptions } from './interfaces';
+import { QueryOptions } from '@agentkai/core/src/storage/interfaces';
+import { StorageProvider } from '@agentkai/core/src/storage/StorageProvider';
 import { platform } from '../platform';
-import { Storage } from './Storage';
-
 /**
  * 基于浏览器文件系统(IndexedDB)的存储实现
  * 使用平台抽象层的BrowserFileSystem进行实际的文件操作
  */
-export class BrowserStorage<T extends { id: string }> extends Storage<T> {
+export class BrowserStorage<T extends { id: string }> extends StorageProvider<T> {
     /**
      * 创建BrowserStorage实例
      * @param basePath 数据存储的基础路径

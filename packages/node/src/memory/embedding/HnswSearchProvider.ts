@@ -1,11 +1,15 @@
-import { platform } from '../../platform';
-import { PathUtils } from '../../platform/interfaces';
-import { Storage } from '../../storage/Storage';
-import { Memory } from '../../types';
-import { Logger } from '../../utils/logger';
-import { EmbeddingProvider } from './EmbeddingProvider';
+import {
+    EmbeddingProvider,
+    ISearchProvider,
+    Logger,
+    Memory,
+    PathUtils,
+    SearchOptions,
+    SearchResult,
+    StorageProvider,
+} from '@agentkai/core';
 import { HnswVectorIndex } from './HnswVectorIndex';
-import { ISearchProvider, SearchOptions, SearchResult } from './ISearchProvider';
+import { platform } from '../../platform';
 
 /**
  * HNSW搜索提供者
@@ -15,7 +19,7 @@ export class HnswSearchProvider implements ISearchProvider {
     private vectorIndex: HnswVectorIndex;
     private embeddingProvider: EmbeddingProvider;
     private logger: Logger;
-    private storage: Storage<Memory>;
+    private storage: StorageProvider<Memory>;
     private dataPath: string;
     private initialized: boolean = false;
     private indexPath: string;
@@ -31,7 +35,7 @@ export class HnswSearchProvider implements ISearchProvider {
      * @param indexName 索引名称
      */
     constructor(
-        storage: Storage<Memory>,
+        storage: StorageProvider<Memory>,
         embeddingProvider: EmbeddingProvider,
         dataPath: string = 'data',
         indexName: string = 'memory'
@@ -73,7 +77,7 @@ export class HnswSearchProvider implements ISearchProvider {
         try {
             // 为查询文本生成嵌入向量
             const vector = await this.embeddingProvider.getEmbedding(query);
-            
+
             // 使用向量进行搜索
             const results = await this.searchByVector(vector, options);
             return results;
@@ -91,19 +95,19 @@ export class HnswSearchProvider implements ISearchProvider {
      */
     async searchByVector(vector: number[], options?: SearchOptions): Promise<SearchResult> {
         const limit = options?.limit || 10;
-        
+
         if (!this.initialized) {
             await this.initialize();
         }
-        
+
         try {
             // 执行向量搜索
             const results = this.vectorIndex.search(vector, limit);
-            
+
             // 将结果格式化为SearchResult
             return {
                 results: results,
-                totalCount: results.length
+                totalCount: results.length,
             };
         } catch (error) {
             this.logger.error('向量搜索失败', error);
@@ -121,20 +125,20 @@ export class HnswSearchProvider implements ISearchProvider {
         }
 
         this.logger.info(`初始化HNSW搜索提供者, 索引路径: ${this.indexPath}`);
-        
+
         try {
             // 尝试加载现有索引
             const loadSuccess = await this.vectorIndex.saveIndex(this.indexPath);
-            
+
             if (!loadSuccess) {
                 this.logger.info('未找到现有索引，将创建新索引');
-                
+
                 // 从存储中加载所有记忆，重建索引
                 await this.rebuildIndex();
             } else {
                 this.logger.info('成功加载现有索引');
             }
-            
+
             this.initialized = true;
         } catch (error) {
             this.logger.error('初始化搜索提供者失败', error);
@@ -171,7 +175,7 @@ export class HnswSearchProvider implements ISearchProvider {
     async updateMemory(memory: Memory): Promise<void> {
         // 先移除旧记忆
         this.removeMemory(memory.id);
-        
+
         // 添加更新后的记忆
         await this.addMemory(memory);
     }
@@ -184,7 +188,7 @@ export class HnswSearchProvider implements ISearchProvider {
         if (!this.initialized) {
             return;
         }
-        
+
         try {
             this.vectorIndex.removeMemory(id);
             // 异步保存索引，但不等待完成
@@ -201,15 +205,11 @@ export class HnswSearchProvider implements ISearchProvider {
      */
     async clear(): Promise<void> {
         this.logger.info('清空搜索索引');
-        
+
         try {
             // 重置向量索引
-            this.vectorIndex = new HnswVectorIndex(
-                this.dimensions,
-                100000,
-                this.indexPath
-            );
-            
+            this.vectorIndex = new HnswVectorIndex(this.dimensions, 100000, this.indexPath);
+
             // 保存空索引
             await this.vectorIndex.saveIndex();
         } catch (error) {
@@ -223,23 +223,23 @@ export class HnswSearchProvider implements ISearchProvider {
      */
     private async rebuildIndex(): Promise<void> {
         this.logger.info('开始重建索引');
-        
+
         try {
             // 获取所有记忆
             const memories = await this.storage.list();
-            
+
             // 筛选有嵌入向量的记忆
             const memoriesWithEmbedding = memories.filter(
-                memory => memory.embedding && memory.embedding.length > 0
+                (memory) => memory.embedding && memory.embedding.length > 0
             );
-            
+
             this.logger.info(`找到 ${memoriesWithEmbedding.length} 条有效记忆用于索引构建`);
-            
+
             // 添加到索引
             for (const memory of memoriesWithEmbedding) {
                 this.vectorIndex.addMemory(memory);
             }
-            
+
             // 保存索引
             await this.vectorIndex.saveIndex();
             this.logger.info('索引重建完成');

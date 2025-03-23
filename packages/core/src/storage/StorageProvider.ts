@@ -5,7 +5,7 @@ import { Logger } from '../utils/logger';
  * 存储抽象类
  * 提供通用的数据存储接口，可由不同的具体存储实现（文件系统、浏览器IndexedDB等）
  */
-export abstract class Storage<T extends { id: string } = any> {
+export abstract class StorageProvider<T extends { id: string } = any> {
     protected logger: Logger;
     protected basePath: string;
 

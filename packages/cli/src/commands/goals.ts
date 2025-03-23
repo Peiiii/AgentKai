@@ -1,4 +1,4 @@
-import { AISystem } from '@agentkai/core';
+import { AISystem } from '@agentkai/node';
 import { Goal, GoalStatus } from '@agentkai/core';
 import { Logger, Colors } from '@agentkai/core';
 

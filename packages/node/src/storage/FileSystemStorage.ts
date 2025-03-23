@@ -1,13 +1,11 @@
+import { FileSystem, PathUtils, PlatformInfo, QueryOptions, StorageProvider } from '@agentkai/core';
 import { platform } from '../platform';
-import { FileSystem, PathUtils, PlatformInfo } from '../platform/interfaces';
-import { Storage } from './Storage';
-import { QueryOptions } from './interfaces';
 
 /**
  * 文件系统存储实现
  * 数据以JSON文件形式存储在指定目录
  */
-export class FileSystemStorage<T extends { id: string }> extends Storage<T> {
+export class FileSystemStorage<T extends { id: string }> extends StorageProvider<T> {
     private fs: FileSystem;
     private pathUtils: PathUtils;
     private platformInfo: PlatformInfo;

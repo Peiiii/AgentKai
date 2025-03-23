@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Goal, GoalStatus, StorageProvider } from '../types';
+import { StorageProvider } from '../storage';
+import { Goal, GoalStatus } from '../types';
 import { Logger } from '../utils/logger';
 
 export class GoalManager {

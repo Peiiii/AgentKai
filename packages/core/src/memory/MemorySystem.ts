@@ -3,16 +3,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '../utils/logger';
 import { EmbeddingProvider } from './embedding/EmbeddingProvider';
 import { ISearchProvider } from './embedding/ISearchProvider';
-import { Storage } from '../storage/Storage';
+import { StorageProvider } from '../storage/StorageProvider';
 
 export class MemorySystem {
-    private storage: Storage<Memory>;
+    private storage: StorageProvider<Memory>;
     private logger: Logger;
     private embeddingProvider?: EmbeddingProvider;
     private searchProvider?: ISearchProvider;
 
     constructor(
-        storage: Storage<Memory>, 
+        storage: StorageProvider<Memory>, 
         embeddingProvider?: EmbeddingProvider, 
         searchProvider?: ISearchProvider
     ) {
