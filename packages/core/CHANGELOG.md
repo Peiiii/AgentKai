@@ -1,5 +1,11 @@
 # @agentkai/core
 
+## 3.8.0
+
+### Minor Changes
+
+- update
+
 ## 3.7.0
 
 ### Minor Changes

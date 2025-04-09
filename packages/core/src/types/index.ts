@@ -75,14 +75,14 @@ export interface Goal {
 }
 
 // 工具相关类型
-export interface Tool {
-    id: string;
-    name: string;
-    description: string;
-    parameters: ToolParameter[];
-    handler: (params: Record<string, any>) => Promise<any>;
-    category: 'memory' | 'goal' | 'system' | 'file' | 'other';
-}
+// export interface Tool {
+//     id: string;
+//     name: string;
+//     description: string;
+//     parameters: ToolParameter[];
+//     handler: (params: Record<string, any>) => Promise<any>;
+//     category: 'memory' | 'goal' | 'system' | 'file' | 'other';
+// }
 
 export interface ToolParameter {
     name: string;
@@ -105,6 +105,48 @@ export interface ToolResult {
     error?: string;
     toolCall: ToolCall;
 }
+
+
+/**
+ * 工具处理函数类型
+ */
+export type ToolHandler<T = any, R = any> = (args: T) => Promise<R>;
+
+/**
+ * 工具定义接口
+ */
+export interface Tool<T = any, R = any> {
+    name: string;
+    description: string;
+    parameters: JSONSchemaDefinition; // 这里改回any以保持向后兼容
+    handler: ToolHandler<T, R>;
+}
+
+/**
+ * JSON Schema 类型定义
+ */
+export interface JSONSchemaProperty {
+    type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
+    description?: string;
+    enum?: string[];
+    items?: JSONSchemaProperty;
+    properties?: Record<string, JSONSchemaProperty>;
+    required?: string[];
+}
+
+export interface JSONSchemaDefinition {
+    type: 'object';
+    properties: Record<string, JSONSchemaProperty>;
+    required?: string[];
+}
+
+/**
+ * 工具注册配置
+ */
+export interface ToolRegistration<T = any, R = any> extends Omit<Tool<T, R>, 'handler'> {
+    handler: ToolHandler<T, R>;
+}
+
 
 // 系统状态
 export interface SystemState {

@@ -1,4 +1,4 @@
-import { ToolRegistration } from '../services/tools';
+import { ToolRegistration } from '../types';
 import { Logger } from '../utils/logger';
 import { GoalManager } from '../goals/GoalManager';
 import { Goal, GoalStatus } from '../types';

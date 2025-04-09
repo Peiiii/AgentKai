@@ -1,62 +1,23 @@
+import { Tool, ToolRegistration } from '../types';
 import { Logger } from '../utils/logger';
 
-/**
- * 工具参数类型定义
- */
-export interface ToolParameter {
-    name: string;
-    type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-    description: string;
-    required: boolean;
-    default?: any;
-}
+// /**
+//  * 工具参数类型定义
+//  */
+// export interface ToolParameter {
+//     name: string;
+//     type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+//     description: string;
+//     required: boolean;
+//     default?: any;
+// }
 
 /**
- * 工具参数集合
- */
-export interface ToolParameters {
-    [key: string]: any; // 这里改回any以保持向后兼容
-}
-
-/**
- * 工具处理函数类型
- */
-export type ToolHandler<T = any, R = any> = (args: T) => Promise<R>;
-
-/**
- * 工具定义接口
- */
-export interface Tool<T = any, R = any> {
-    name: string;
-    description: string;
-    parameters: JSONSchemaDefinition; // 这里改回any以保持向后兼容
-    handler: ToolHandler<T, R>;
-}
-
-/**
- * JSON Schema 类型定义
- */
-export interface JSONSchemaProperty {
-    type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
-    description?: string;
-    enum?: string[];
-    items?: JSONSchemaProperty;
-    properties?: Record<string, JSONSchemaProperty>;
-    required?: string[];
-}
-
-export interface JSONSchemaDefinition {
-    type: 'object';
-    properties: Record<string, JSONSchemaProperty>;
-    required?: string[];
-}
-
-/**
- * 工具注册配置
- */
-export interface ToolRegistration<T = any, R = any> extends Omit<Tool<T, R>, 'handler'> {
-    handler: ToolHandler<T, R>;
-}
+//  * 工具参数集合
+//  */
+// export interface ToolParameters {
+//     [key: string]: any; // 这里改回any以保持向后兼容
+// }
 
 /**
  * 工具管理服务，负责工具的注册和执行

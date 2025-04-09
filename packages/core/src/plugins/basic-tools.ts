@@ -1,6 +1,6 @@
 import { BaseAISystem } from '../core/AISystem';
 import { SystemAdapter } from '../core/adapter';
-import { ToolRegistration } from '../services/tools';
+import { ToolRegistration } from '../types';
 import { CreateMemoryInput, Memory } from '../types/memory';
 import { Logger } from '../utils/logger';
 
