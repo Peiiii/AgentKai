@@ -26,7 +26,7 @@ export type ToolHandler<T = any, R = any> = (args: T) => Promise<R>;
 /**
  * 工具定义接口
  */
-export interface Tool<T = Record<string, any>, R = any> {
+export interface Tool<T = any, R = any> {
   name: string;
   description: string;
   parameters: JSONSchemaDefinition; // 这里改回any以保持向后兼容
@@ -54,7 +54,7 @@ export interface JSONSchemaDefinition {
 /**
  * 工具注册配置
  */
-export interface ToolRegistration<T = Record<string, any>, R = any> extends Omit<Tool<T, R>, 'handler'> {
+export interface ToolRegistration<T = any, R = any> extends Omit<Tool<T, R>, 'handler'> {
   handler: ToolHandler<T, R>;
 }
 
