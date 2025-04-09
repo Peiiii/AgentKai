@@ -12,14 +12,10 @@ import { Logger } from '../utils/logger';
 import { PerformanceMonitor } from '../utils/performance';
 import { ConversationManager } from './conversation/ConversationManager';
 import { PluginManager } from './plugins/PluginManager';
+import { Plugin } from './plugins/plugin';
 import { PromptBuilder } from './prompts/PromptBuilder';
 import { ResponseProcessor } from './response/ResponseProcessor';
 
-// 定义插件接口
-export interface Plugin {
-    getTools(): any[];
-    getName(): string;
-}
 
 /**
  * AISystem作为核心协调类，负责整合和管理各个子系统

@@ -1,7 +1,6 @@
 import { Logger } from '../../utils/logger';
 import { ToolService } from '../../services/tools';
-import { Plugin } from '../AISystem';
-
+import { Plugin } from './plugin';
 /**
  * 插件管理器
  * 负责插件的加载、初始化和管理
