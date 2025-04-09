@@ -29,8 +29,26 @@ export type ToolHandler<T = Record<string, any>, R = any> = (args: T) => Promise
 export interface Tool<T = Record<string, any>, R = any> {
   name: string;
   description: string;
-  parameters: any; // 这里改回any以保持向后兼容
+  parameters: JSONSchemaDefinition; // 这里改回any以保持向后兼容
   handler: ToolHandler<T, R>;
+}
+
+/**
+ * JSON Schema 类型定义
+ */
+export interface JSONSchemaProperty {
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
+  description?: string;
+  enum?: string[];
+  items?: JSONSchemaProperty;
+  properties?: Record<string, JSONSchemaProperty>;
+  required?: string[];
+}
+
+export interface JSONSchemaDefinition {
+  type: 'object';
+  properties: Record<string, JSONSchemaProperty>;
+  required?: string[];
 }
 
 /**

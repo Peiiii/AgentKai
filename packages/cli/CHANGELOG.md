@@ -1,5 +1,17 @@
 # @agentkai/cli
 
+## 3.2.0
+
+### Minor Changes
+
+- fix types
+
+### Patch Changes
+
+- Updated dependencies
+    - @agentkai/core@3.2.0
+    - @agentkai/node@3.2.0
+
 ## 3.1.0
 
 ### Minor Changes
