@@ -21,7 +21,7 @@ export interface ToolParameters {
 /**
  * 工具处理函数类型
  */
-export type ToolHandler<T = Record<string, any>, R = any> = (args: T) => Promise<R>;
+export type ToolHandler<T = any, R = any> = (args: T) => Promise<R>;
 
 /**
  * 工具定义接口
