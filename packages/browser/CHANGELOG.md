@@ -1,5 +1,16 @@
 # @agentkai/browser
 
+## 3.6.0
+
+### Minor Changes
+
+- update
+
+### Patch Changes
+
+- Updated dependencies
+    - @agentkai/core@3.6.0
+
 ## 3.5.0
 
 ### Minor Changes

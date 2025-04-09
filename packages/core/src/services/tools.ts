@@ -39,16 +39,16 @@ export interface Tool<T = any, R = any> {
 export interface JSONSchemaProperty {
   readonly type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
   readonly description?: string;
-  readonly enum?: string[];
+  readonly enum?: readonly string[];
   readonly items?: JSONSchemaProperty;
   readonly properties?: Record<string, JSONSchemaProperty>;
-  readonly required?: string[];
+  readonly required?: readonly string[];
 }
 
 export interface JSONSchemaDefinition {
   readonly type: 'object';
   readonly properties: Record<string, JSONSchemaProperty>;
-  readonly required?: string[];
+  readonly required?: readonly string[];
 }
 
 /**

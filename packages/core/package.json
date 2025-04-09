@@ -1,6 +1,6 @@
 {
   "name": "@agentkai/core",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "AgentKai核心包，提供AI助手系统的基础功能",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
