@@ -37,18 +37,18 @@ export interface Tool<T = any, R = any> {
  * JSON Schema 类型定义
  */
 export interface JSONSchemaProperty {
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
-  description?: string;
-  enum?: string[];
-  items?: JSONSchemaProperty;
-  properties?: Record<string, JSONSchemaProperty>;
-  required?: string[];
+  readonly type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array';
+  readonly description?: string;
+  readonly enum?: string[];
+  readonly items?: JSONSchemaProperty;
+  readonly properties?: Record<string, JSONSchemaProperty>;
+  readonly required?: string[];
 }
 
 export interface JSONSchemaDefinition {
-  type: 'object';
-  properties: Record<string, JSONSchemaProperty>;
-  required?: string[];
+  readonly type: 'object';
+  readonly properties: Record<string, JSONSchemaProperty>;
+  readonly required?: string[];
 }
 
 /**

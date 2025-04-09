@@ -1,5 +1,17 @@
 # @agentkai/cli
 
+## 3.5.0
+
+### Minor Changes
+
+- update
+
+### Patch Changes
+
+- Updated dependencies
+    - @agentkai/core@3.5.0
+    - @agentkai/node@3.5.0
+
 ## 3.4.0
 
 ### Minor Changes
