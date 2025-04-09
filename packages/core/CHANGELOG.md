@@ -1,5 +1,11 @@
 # @agentkai/core
 
+## 3.1.0
+
+### Minor Changes
+
+- add exports
+
 ## 3.0.0
 
 ### Major Changes

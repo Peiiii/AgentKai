@@ -9,10 +9,7 @@ export * from './types';
 export * from './types/config';
 
 // 2. 核心系统
-export * from './core/adapter';
-export * from './core/AISystem';
-export * from './core/prompts/PromptBuilder';
-export * from './core/response/ResponseProcessor';
+export * from "./core"
 
 // 3. 记忆系统
 export * from './memory/embedding';
