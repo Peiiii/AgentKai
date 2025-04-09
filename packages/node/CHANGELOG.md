@@ -1,5 +1,16 @@
 # @agentkai/node
 
+## 3.7.0
+
+### Minor Changes
+
+- update
+
+### Patch Changes
+
+- Updated dependencies
+    - @agentkai/core@3.7.0
+
 ## 3.6.0
 
 ### Minor Changes
