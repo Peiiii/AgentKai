@@ -1,4 +1,4 @@
-import { FileSystem, PathUtils, PlatformInfo, QueryOptions, StorageProvider } from '@agentkai/core';
+import { FileSystem, PathUtils, QueryOptions, StorageProvider } from '@agentkai/core';
 import { platform } from '../platform';
 
 /**
@@ -8,7 +8,6 @@ import { platform } from '../platform';
 export class FileSystemStorage<T extends { id: string }> extends StorageProvider<T> {
     private fs: FileSystem;
     private pathUtils: PathUtils;
-    private platformInfo: PlatformInfo;
 
     /**
      * 创建文件系统存储
@@ -19,7 +18,6 @@ export class FileSystemStorage<T extends { id: string }> extends StorageProvider
         super(basePath, name);
         this.fs = platform.fs;
         this.pathUtils = platform.path;
-        this.platformInfo = platform.platformInfo;
         this.ensureDirectoryExists(this.basePath);
         this.logger.info(`文件系统存储已初始化，路径: ${this.basePath}`);
     }

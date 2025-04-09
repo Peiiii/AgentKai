@@ -1,6 +1,5 @@
 import { BaseAISystem } from '../core/AISystem';
 import { SystemAdapter } from '../core/adapter';
-import { BaseConfigService } from '../services/config';
 import { ToolRegistration } from '../services/tools';
 import { CreateMemoryInput, Memory } from '../types/memory';
 import { Logger } from '../utils/logger';
@@ -10,12 +9,10 @@ import { Logger } from '../utils/logger';
  */
 export class BasicToolsPlugin {
     private logger: Logger;
-    private config: BaseConfigService;
     private adapter: SystemAdapter;
 
     constructor(aiSystem: BaseAISystem) {
         this.logger = new Logger('BasicToolsPlugin');
-        this.config = aiSystem.getConfigService();
         this.adapter = new SystemAdapter(aiSystem);
     }
 

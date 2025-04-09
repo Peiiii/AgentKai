@@ -4,6 +4,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
     "lib": ["dom", "es2020"]
   },
   "include": ["src/**/*"],

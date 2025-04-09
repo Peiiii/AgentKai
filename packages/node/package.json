@@ -1,6 +1,6 @@
 {
   "name": "@agentkai/node",
-  "version": "2.0.8",
+  "version": "3.0.0",
   "description": "AgentKai的Node.js环境特定实现",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "clean": "rimraf dist",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",

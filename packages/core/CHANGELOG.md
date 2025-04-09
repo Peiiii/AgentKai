@@ -1,5 +1,15 @@
 # @agentkai/core
 
+## 3.0.0
+
+### Major Changes
+
+- just update version only
+
+### Minor Changes
+
+- 38b4961: add interface
+
 ## 2.0.8
 
 ### Patch Changes

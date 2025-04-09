@@ -1,6 +1,6 @@
 {
   "name": "@agentkai/cli",
-  "version": "2.0.8",
+  "version": "3.0.0",
   "description": "AgentKai命令行界面",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "clean": "rimraf dist",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
     "dev": "ts-node src/cli.ts",
     "start": "node dist/cli.js",
     "lint": "eslint src --ext .ts",

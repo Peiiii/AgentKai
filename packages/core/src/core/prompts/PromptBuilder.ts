@@ -1,8 +1,7 @@
+import { ToolService } from '../../services/tools';
 import { Goal, Memory } from '../../types';
 import { AgentKaiConfig } from '../../types/config';
-import { Logger } from '../../utils/logger';
 import { ConversationMessage } from '../conversation/ConversationManager';
-import { ToolService } from '../../services/tools';
 
 /**
  * 提示构建器
@@ -10,7 +9,6 @@ import { ToolService } from '../../services/tools';
  */
 export class PromptBuilder {
   private config: AgentKaiConfig;
-  private logger: Logger;
   private toolService: ToolService;
 
   /**
@@ -19,7 +17,6 @@ export class PromptBuilder {
    */
   constructor(config: AgentKaiConfig) {
     this.config = config;
-    this.logger = new Logger('PromptBuilder');
     this.toolService = ToolService.getInstance();
   }
 

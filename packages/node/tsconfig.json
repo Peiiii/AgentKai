@@ -5,7 +5,8 @@
     "rootDir": "src",
     "declaration": true,
     "lib": ["ES2015", "DOM"],
-    "types": ["node"]
+    "types": ["node"],
+    "incremental": true
   },
   "include": ["src/**/*"],
   "references": [

@@ -39,9 +39,6 @@ export class HnswSearchProvider implements ISearchProvider {
     private readonly fs: FileSystem;
     private readonly pathUtils: PathUtils;
 
-    // 配置参数
-    private readonly dataPath: string;
-    private readonly indexName: string;
     private readonly metadataPath: string;
     private dimensions: number;
     private spacetype: SpaceName = 'cosine';
@@ -73,11 +70,9 @@ export class HnswSearchProvider implements ISearchProvider {
         this.logger = new Logger('HnswSearchProvider');
         this.storage = storage;
         this.embeddingProvider = embeddingProvider;
-        this.dataPath = dataPath;
         this.fs = platform.fs;
         this.pathUtils = platform.path;
         this.dimensions = embeddingProvider.getDimensions();
-        this.indexName = indexName;
         this.metadataPath = this.pathUtils.join(dataPath, `${indexName}.meta.json`);
     }
 

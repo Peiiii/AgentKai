@@ -28,7 +28,7 @@ export * from './storage';
 export * from './services/config';
 
 // 显式导出ToolService和ToolRegistration避免命名冲突
-export { Tool, ToolHandler, ToolParameter, ToolRegistration, ToolService } from './services/tools';
+export { ToolService } from './services/tools';
 
 // 7. 工具
 export * from './utils/errors';

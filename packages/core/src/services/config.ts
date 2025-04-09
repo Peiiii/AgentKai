@@ -23,7 +23,6 @@ interface ConfigOptions {
  * 配置服务，用于管理所有配置
  */
 export abstract class BaseConfigService implements IConfigService {
-    private static instance: BaseConfigService;
     private config: Map<string, any> = new Map();
     private logger: Logger;
 
@@ -39,38 +38,19 @@ export abstract class BaseConfigService implements IConfigService {
     private configDir: string;
     private dataDir: string;
     private userConfigDir: string;
-    private baseDir: string;
     private configPath: string;
     private userConfigPath: string;
-    private packageJsonPath: string;
 
     // 配置数据
-    private packageInfo: any = null;
     private defaultConfig: AgentKaiConfig | null = null;
     private userConfig: AgentKaiConfig | null = null;
     private envConfig: AgentKaiConfig | null = null;
     private fullConfig: AgentKaiConfig | null = null;
 
-    // 全局配置目录路径
-    private readonly GLOBAL_CONFIG_DIR = this.platformInfo.isNode()
-        ? this.platformInfo.platform() === 'win32'
-            ? this.pathUtils.join(this.env.get('ProgramData') || 'C:\\ProgramData', 'agentkai')
-            : '/etc/agentkai'
-        : '/config';
-
-    // 用户主目录配置路径
-    private readonly USER_CONFIG_DIR = this.pathUtils.join(
-        this.platformInfo.homeDir(),
-        '.agentkai'
-    );
 
     constructor(options: ConfigOptions = {}) {
         this.logger = new Logger('ConfigService');
         this.ensureDirExists();
-        // 设置baseDir
-        this.baseDir = this.platformInfo.isNode()
-            ? this.pathUtils.dirname(this.pathUtils.dirname(__dirname))
-            : '/';
 
         const appDataDir = this.getUserAppDataDir();
         this.dataDir = this.pathUtils.join(appDataDir, '.agentkai');
@@ -83,7 +63,6 @@ export abstract class BaseConfigService implements IConfigService {
         // 配置文件路径
         this.configPath = this.pathUtils.join(this.configDir, 'defaults.json');
         this.userConfigPath = this.pathUtils.join(this.userConfigDir, 'config.json');
-        this.packageJsonPath = this.pathUtils.join(this.baseDir, 'package.json');
     }
 
     ensureDirExists(): void {
@@ -201,23 +180,6 @@ export abstract class BaseConfigService implements IConfigService {
     }
 
     /**
-     * 加载项目包信息
-     */
-    private async loadPackageInfo(): Promise<void> {
-        try {
-            if (await this.fs.exists(this.packageJsonPath)) {
-                const packageData = await this.fs.readFile(this.packageJsonPath);
-                this.packageInfo = JSON.parse(packageData);
-            }
-        } catch (error) {
-            // 包信息加载失败不影响程序运行
-            console.warn(
-                `加载包信息失败: ${error instanceof Error ? error.message : String(error)}`
-            );
-        }
-    }
-
-    /**
      * 加载环境变量配置
      */
     private async loadEnvConfig(): Promise<void> {
@@ -321,18 +283,6 @@ export abstract class BaseConfigService implements IConfigService {
         if (value === undefined) return undefined;
         const parsed = parseFloat(value);
         return isNaN(parsed) ? undefined : parsed;
-    }
-
-    /**
-     * 将字符串解析为布尔值
-     * @param value 要解析的字符串
-     * @returns 解析后的布尔值，如果解析失败则返回undefined
-     */
-    private parseBoolean(value: string | undefined): boolean | undefined {
-        if (value === undefined) return undefined;
-        if (value.toLowerCase() === 'true') return true;
-        if (value.toLowerCase() === 'false') return false;
-        return undefined;
     }
 
     /**

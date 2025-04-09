@@ -1,5 +1,21 @@
 # @agentkai/browser
 
+## 3.0.0
+
+### Major Changes
+
+- just update version only
+
+### Minor Changes
+
+- 38b4961: add interface
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [38b4961]
+    - @agentkai/core@3.0.0
+
 ## 2.1.5
 
 ### Patch Changes
