@@ -1,3 +1,5 @@
+import { Message, StreamChunk } from './message';
+
 // 基础类型定义
 export type UUID = string;
 export type Timestamp = number;
@@ -75,15 +77,6 @@ export interface Goal {
 }
 
 // 工具相关类型
-// export interface Tool {
-//     id: string;
-//     name: string;
-//     description: string;
-//     parameters: ToolParameter[];
-//     handler: (params: Record<string, any>) => Promise<any>;
-//     category: 'memory' | 'goal' | 'system' | 'file' | 'other';
-// }
-
 export interface ToolParameter {
     name: string;
     type: 'string' | 'number' | 'boolean' | 'object' | 'array';
@@ -168,11 +161,17 @@ export enum GoalStatus {
     PENDING = 'pending'
 }
 
-// AI模型接口
+// 扩展AIModel接口
 export interface AIModel {
     generateText(prompt: string): Promise<string>;
     generateDecision(context: Context): Promise<Decision>;
-    generateResponse(messages: string[]): Promise<{ response: string; tokens: { prompt: number; completion: number } }>;
+    generateResponse(messages: Message[]): Promise<{ response: string; tokens: { prompt: number; completion: number } }>;
+    
+    // 流式输出方法
+    generateStream(messages: Message[]): AsyncGenerator<StreamChunk>;
+    
+    // 流式工具调用方法
+    generateStreamWithTools(messages: Message[], tools: Tool[]): AsyncGenerator<StreamChunk>;
 }
 
 // 系统响应接口
@@ -199,21 +198,3 @@ export enum MemoryType {
     FACT = 'fact',
     PLAN = 'plan'
 }
-
-// // 搜索相关类型
-// export interface SearchOptions {
-//   limit?: number;             // 搜索结果最大数量
-//   minSimilarity?: number;     // 最小相似度阈值
-//   timeRange?: {               // 时间范围
-//     start: Timestamp;
-//     end: Timestamp;
-//   };
-//   types?: MemoryType[];       // 记忆类型过滤
-//   metadata?: Record<string, any>; // 元数据过滤
-// }
-
-// export interface SearchResult {
-//   results: Memory[];          // 搜索结果记忆列表
-//   totalResults: number;       // 结果总数
-//   metadata?: Record<string, any>; // 搜索元数据
-// } 

@@ -1,18 +1,9 @@
+import { DeleteOutlined, EyeOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
+import { Button, Card, Modal, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
-import { Card, Typography, Tag, Modal, Button, Tooltip } from 'antd';
-import { EyeOutlined, DeleteOutlined, StarOutlined, StarFilled } from '@ant-design/icons';
+import { Memory } from '../types/chat';
 
 const { Paragraph, Text } = Typography;
-
-// 记忆接口
-export interface Memory {
-  id: string;
-  content: string;
-  category?: string;
-  importance?: number;
-  createdAt: Date;
-  tags?: string[];
-}
 
 interface MemoryCardProps {
   memory: Memory;
@@ -32,11 +23,8 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
   const [detailVisible, setDetailVisible] = useState(false);
   
   // 记忆创建时间格式化
-  const formatDate = (date: Date) => {
-    if (!(date instanceof Date)) {
-      date = new Date(date);
-    }
-    return date.toLocaleString('zh-CN', { 
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString('zh-CN', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric',
@@ -125,7 +113,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
             {memory.content}
           </Paragraph>
           <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
-            <Text type="secondary">{formatDate(memory.createdAt)}</Text>
+            <Text type="secondary">{formatDate(memory.timestamp)}</Text>
           </div>
           {renderTags()}
         </div>
@@ -152,7 +140,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
           {memory.content}
         </Paragraph>
         <div className="mt-4 text-gray-500">
-          <Text type="secondary">创建时间: {formatDate(memory.createdAt)}</Text>
+          <Text type="secondary">创建时间: {formatDate(memory.timestamp)}</Text>
         </div>
       </Modal>
     </>

@@ -73,7 +73,35 @@ export class AgentAPI {
     }
 
     /**
-     * 处理用户消息
+     * 处理用户消息（流式输出）
+     * @param content 消息内容
+     * @param onChunk 处理每个数据块的回调函数
+     * @returns 处理结果
+     */
+    public async processMessageStream(
+        content: string,
+        onChunk: (chunk: string) => void
+    ): Promise<void> {
+        await this.ensureInitialized();
+        
+        try {
+            // 使用流式处理
+            const stream = await this.aiSystem.processInputStream(content);
+            
+            // 处理流式响应
+            for await (const chunk of stream) {
+                if (chunk.output) {
+                    onChunk(chunk.output);
+                }
+            }
+        } catch (error) {
+            console.error('Stream processing error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 处理用户消息（兼容旧版本）
      * @param content 消息内容
      * @returns 处理结果
      */

@@ -5,6 +5,7 @@ import { marked } from 'marked';
 import 'highlight.js/styles/github.css';
 import hljs from 'highlight.js';
 import '../markdown.css';
+import { useEffect, useRef } from 'react';
 
 const { Text } = Typography;
 
@@ -22,14 +23,26 @@ marked.setOptions({
 
 interface ChatMessageProps {
   message: Message;
+  isStreaming?: boolean;
 }
 
-export const ChatMessage = ({ message }: ChatMessageProps) => {
+export const ChatMessage = ({ message, isStreaming = false }: ChatMessageProps) => {
   const isUser = !message.isAgent;
   const renderedContent = marked.parse(message.content);
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  // 当消息内容更新时，自动滚动到底部
+  useEffect(() => {
+    if (messageRef.current && !isUser) {
+      messageRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [message.content, isUser]);
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div 
+      ref={messageRef}
+      className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
+    >
       <div className={`flex ${isUser ? 'flex-row-reverse' : 'flex-row'} max-w-[75%]`}>
         <Avatar
           icon={isUser ? <UserOutlined /> : <RobotOutlined />}
@@ -40,7 +53,7 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
           <div
             className={`p-3 rounded-lg break-words overflow-hidden ${
               isUser ? 'bg-blue-100 text-right' : 'bg-gray-100'
-            }`}
+            } ${isStreaming ? 'animate-pulse' : ''}`}
             style={{ wordBreak: 'break-word' }}
           >
             <div 

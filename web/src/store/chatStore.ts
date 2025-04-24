@@ -1,13 +1,7 @@
 import { create } from 'zustand';
 import { AgentService } from '../services/agent/AgentService';
-import { Message } from '../models/Message';
-import { Memory } from '../components/MemoryCard';
-
-interface Goal {
-    id: string;
-    description: string;
-    progress: number;
-}
+import { Goal, Memory } from '@agentkai/core';
+import { Message } from '../types/chat';
 
 interface ChatState {
     messages: Message[];
@@ -99,6 +93,8 @@ export const useChatStore = create<ChatState>((set, get) => {
                 return;
             }
             
+            let agentMessageId: string;
+            
             try {
                 set({ isLoading: true, error: null });
                 
@@ -111,59 +107,66 @@ export const useChatStore = create<ChatState>((set, get) => {
                     status: 'sending'
                 };
                 
-                // 添加用户消息到列表
+                // 创建AI消息
+                const agentMessage: Message = {
+                    id: `agent_${Date.now()}`,
+                    content: '',
+                    isAgent: true,
+                    timestamp: new Date(),
+                    status: 'sending'
+                };
+                
+                agentMessageId = agentMessage.id;
+                
+                // 添加用户消息和AI消息到列表
                 set(state => ({
-                    messages: [...state.messages, userMessage]
+                    messages: [...state.messages, userMessage, agentMessage]
                 }));
                 
-                // 发送消息到AI系统
-                const agentMessage = await agentService.sendMessage(content);
-                
-                // 更新用户消息状态和添加AI回复
-                set(state => {
-                    // 先创建更新后的消息数组
-                    const updatedMessages = state.messages.map(msg => 
+                // 更新用户消息状态
+                set(state => ({
+                    messages: state.messages.map(msg => 
                         msg.id === userMessage.id 
-                            ? { ...msg, status: 'sent' as const } 
+                            ? { ...msg, status: 'sent' } 
                             : msg
-                    );
-                    
-                    // 返回更新后的状态
-                    return {
-                        isLoading: false,
-                        messages: [...updatedMessages, agentMessage]
-                    };
+                    )
+                }));
+                
+                // 使用流式处理
+                const api = await import('../api/agent').then(m => m.AgentAPI.getInstance());
+                await api.processMessageStream(content, (chunk: string) => {
+                    // 更新AI消息内容
+                    set(state => ({
+                        messages: state.messages.map(msg => 
+                            msg.id === agentMessageId 
+                                ? { ...msg, content: msg.content + chunk } 
+                                : msg
+                        )
+                    }));
                 });
+                
+                // 更新AI消息状态
+                set(state => ({
+                    messages: state.messages.map(msg => 
+                        msg.id === agentMessageId 
+                            ? { ...msg, status: 'sent' } 
+                            : msg
+                    ),
+                    isLoading: false
+                }));
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : '发送消息失败';
                 
-                // 更新错误状态和用户消息状态
-                set(state => {
-                    // 查找需要更新的消息
-                    const targetId = `user_${Date.now()}`;
-                    const messageToUpdate = state.messages.find(msg => msg.id === targetId);
-                    
-                    if (messageToUpdate) {
-                        // 如果找到目标消息，则更新它
-                        const updatedMessages = state.messages.map(msg => 
-                            msg.id === targetId 
-                                ? { ...msg, status: 'error' as const, error: errorMessage } 
-                                : msg
-                        );
-                        
-                        return {
-                            isLoading: false,
-                            error: errorMessage,
-                            messages: updatedMessages
-                        };
-                    } else {
-                        // 如果没有找到目标消息，只更新错误状态
-                        return {
-                            isLoading: false,
-                            error: errorMessage
-                        };
-                    }
-                });
+                // 更新错误状态和消息状态
+                set(state => ({
+                    messages: state.messages.map(msg => 
+                        msg.id === agentMessageId 
+                            ? { ...msg, status: 'error', error: errorMessage } 
+                            : msg
+                    ),
+                    isLoading: false,
+                    error: errorMessage
+                }));
             }
         },
         

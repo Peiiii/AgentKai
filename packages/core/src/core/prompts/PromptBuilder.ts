@@ -1,7 +1,11 @@
 import { ToolService } from '../../services/tools';
 import { Goal, Memory } from '../../types';
 import { AgentKaiConfig } from '../../types/config';
+import { Message } from '../../types/message';
+import { ConversationManager } from '../conversation/ConversationManager';
 import { ConversationMessage } from '../conversation/ConversationManager';
+import { MemorySystem } from '../../memory/MemorySystem';
+import { GoalManager } from '../../goals/GoalManager';
 
 /**
  * 提示构建器
@@ -10,14 +14,28 @@ import { ConversationMessage } from '../conversation/ConversationManager';
 export class PromptBuilder {
   private config: AgentKaiConfig;
   private toolService: ToolService;
+  private conversation: ConversationManager;
+  private memory: MemorySystem;
+  private goals: GoalManager;
 
   /**
    * 构造函数
    * @param config 系统配置
+   * @param conversation 对话管理器
+   * @param memory 记忆系统
+   * @param goals 目标管理器
    */
-  constructor(config: AgentKaiConfig) {
+  constructor(
+    config: AgentKaiConfig,
+    conversation: ConversationManager,
+    memory: MemorySystem,
+    goals: GoalManager
+  ) {
     this.config = config;
     this.toolService = ToolService.getInstance();
+    this.conversation = conversation;
+    this.memory = memory;
+    this.goals = goals;
   }
 
   /**
@@ -130,12 +148,12 @@ export class PromptBuilder {
     relevantMemories: Memory[],
     activeGoals: Goal[],
     tools: any[] = []
-  ): string[] {
+  ): Message[] {
     // 获取工具服务中的所有工具定义
     const serviceTools = tools || [];
 
     // 构建上下文
-    return [
+    const systemPrompt = [
       // 1. 系统设定 + AI自身角色定义
       this.buildSystemPrompt(),
 
@@ -178,6 +196,11 @@ export class PromptBuilder {
 
       // 8. 最后的指导
       '请根据以上信息回答用户的问题。如需保存重要信息到长期记忆，请使用add_memory工具。',
+    ].join('\n');
+
+    return [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory,
     ];
   }
 
@@ -211,5 +234,34 @@ export class PromptBuilder {
         msg => `${msg.role === 'user' ? '用户' : 'AI'}: ${msg.content}`
       ),
     ].filter(item => item !== ''); // 移除空字符串
+  }
+
+  /**
+   * 构建完整提示
+   * @param input 用户输入
+   * @returns 完整提示
+   */
+  async buildPrompt(input: string): Promise<string> {
+    // 获取对话历史
+    const conversationHistory = this.conversation.getHistory();
+    
+    // 获取相关记忆
+    const relevantMemories = await this.memory.searchMemories(input);
+    
+    // 获取活跃目标
+    const activeGoals = await this.goals.getActiveGoals();
+    
+    // 构建上下文消息
+    const contextMessages = this.buildContextMessages(
+        conversationHistory,
+        relevantMemories,
+        activeGoals
+    );
+    
+    // 添加用户输入
+    contextMessages.push({ role: 'user', content: input });
+    
+    // 返回完整提示
+    return contextMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
   }
 } 

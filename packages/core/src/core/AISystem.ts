@@ -102,7 +102,12 @@ export class BaseAISystem {
         this.conversation = new ConversationManager(10); // 保留最近10条消息
         this.pluginManager = new PluginManager(plugins);
         this.responseProcessor = new ResponseProcessor(this.logger);
-        this.promptBuilder = new PromptBuilder(config);
+        this.promptBuilder = new PromptBuilder(
+            config,
+            this.conversation,
+            this.memory,
+            this.goals
+        );
     }
 
     async initialize(): Promise<void> {
@@ -343,5 +348,43 @@ export class BaseAISystem {
 
     getToolService(): ToolService {
         return ToolService.getInstance();
+    }
+
+    /**
+     * 处理输入并返回流式响应
+     * @param input 用户输入
+     * @returns 流式响应
+     */
+    async *processInputStream(input: string): AsyncGenerator<SystemResponse> {
+        try {
+            // 构建提示
+            const prompt = await this.promptBuilder.buildPrompt(input);
+            
+            // 使用模型生成流式响应
+            const stream = await this.model.generateStream([{ role: 'user', content: prompt }]);
+            
+            // 处理每个响应块
+            for await (const chunk of stream) {
+                if (chunk.type === 'text') {
+                    // 处理响应
+                    const processedResponse = await this.responseProcessor.processResponse(chunk.content as string);
+                    
+                    // 更新对话历史
+                    await this.conversation.addMessage('assistant', processedResponse.output || '');
+                    
+                    // 保存到记忆系统
+                    await this.addMemory(processedResponse.output || '', {
+                        type: MemoryType.CONVERSATION,
+                        role: 'assistant',
+                        importance: 5
+                    });
+                    
+                    yield processedResponse;
+                }
+            }
+        } catch (error) {
+            this.logger.error('流式处理失败', error);
+            throw wrapError(error, '流式处理失败');
+        }
     }
 }

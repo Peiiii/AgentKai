@@ -2,10 +2,10 @@
   "name": "@agentkai/browser",
   "version": "3.10.0",
   "description": "AgentKai的浏览器环境特定实现",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "files": [
-    "dist",
+    "src",
     "README.md",
     "LICENSE"
   ],

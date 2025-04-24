@@ -1,5 +1,6 @@
 import { Logger } from '../../utils/logger';
 import { ToolService } from '../../services/tools';
+import { SystemResponse } from '../../types';
 
 /**
  * 响应处理器
@@ -131,6 +132,22 @@ export class ResponseProcessor {
             toolCalled,
             modifiedText,
             extraTokens: { prompt: 0, completion: 0 },
+        };
+    }
+
+    /**
+     * 处理响应
+     * @param response AI响应文本
+     * @returns 处理后的响应
+     */
+    async processResponse(response: string): Promise<SystemResponse> {
+        // 处理工具调用
+        const { modifiedText, extraTokens } = await this.processToolsInResponse(response);
+        
+        // 返回处理后的响应
+        return {
+            output: modifiedText,
+            tokens: extraTokens
         };
     }
 }
