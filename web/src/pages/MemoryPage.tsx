@@ -13,16 +13,26 @@ const { Title } = Typography;
 export const MemoryPage: React.FC = () => {
   
   return (
-    <Layout style={{ height: '100%' }}>
-      <Content style={{ padding: '24px' }}>
-        <Title level={3} style={{ marginBottom: '24px' }}>
+    <Layout style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Content style={{ 
+        padding: '24px', 
+        display: 'flex', 
+        flexDirection: 'column',
+        flex: '1 1 auto', 
+        overflow: 'hidden'
+      }}>
+        <Title level={3} style={{ marginBottom: '24px', flex: '0 0 auto' }}>
           AI记忆管理
         </Title>
         <div style={{ 
           background: '#fff', 
           padding: '24px', 
           borderRadius: '8px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)'
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)',
+          flex: '1 1 auto',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           <MemoryList />
         </div>
