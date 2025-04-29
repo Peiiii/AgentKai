@@ -8,13 +8,17 @@ const { Title } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
+interface MemoryListProps {
+  initialMemories?: Memory[];
+}
+
 /**
  * 记忆列表组件
  * 展示和管理AI的记忆
  */
-export const MemoryList: React.FC = () => {
+export const MemoryList: React.FC<MemoryListProps> = ({ initialMemories }) => {
   const { 
-    memories, 
+    memories: storeMemories, 
     categories, 
     tags,
     selectedCategory,
@@ -31,13 +35,18 @@ export const MemoryList: React.FC = () => {
     clearFilters
   } = useMemoryStore();
   
+  // 使用初始记忆或存储中的记忆
+  const memories = initialMemories || storeMemories;
+  
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [form] = Form.useForm();
   
   // 初始加载记忆
   useEffect(() => {
-    loadMemories();
-  }, [loadMemories]);
+    if (!initialMemories) {
+      loadMemories();
+    }
+  }, [loadMemories, initialMemories]);
   
   // 处理记忆删除
   const handleDeleteMemory = async (id: string) => {
