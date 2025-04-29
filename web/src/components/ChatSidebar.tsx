@@ -1,6 +1,7 @@
 import React from 'react';
 import { Layout, Card, List, Typography } from 'antd';
 import { Goal, Memory } from '@agentkai/core';
+import { Link, useLocation } from 'react-router-dom';
 
 const { Sider } = Layout;
 const { Paragraph } = Typography;
@@ -13,6 +14,10 @@ interface ChatSidebarProps {
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({ memories, goals, collapsed, onCollapse }) => {
+  const location = useLocation();
+  const isMemoryPage = location.pathname === '/memories';
+  const isGoalPage = location.pathname === '/goals';
+  
   const renderMemoryItem = (memory: Memory) => {
     const category = memory.metadata?.category as string | undefined;
     const importance = memory.metadata?.importance as number | undefined;
@@ -49,9 +54,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ memories, goals, colla
         <Card 
           title="记忆" 
           size="small" 
-          className="mb-4"
+          className={`mb-4 ${isMemoryPage ? 'border-blue-500' : ''}`}
           extra={
-            <a href="/#/memories" className="text-xs">查看全部</a>
+            <Link to="/memories" className="text-xs">查看全部</Link>
           }
         >
           <List
@@ -62,7 +67,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ memories, goals, colla
           />
         </Card>
         
-        <Card title="目标" size="small">
+        <Card 
+          title="目标" 
+          size="small"
+          className={isGoalPage ? 'border-blue-500' : ''}
+          extra={
+            <Link to="/goals" className="text-xs">查看全部</Link>
+          }
+        >
           <List
             size="small"
             dataSource={goals}

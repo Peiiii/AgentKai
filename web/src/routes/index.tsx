@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu } from 'antd';
 import { 
   MessageOutlined, 
@@ -19,6 +19,10 @@ const { Sider, Content } = Layout;
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = React.useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // 根据当前路径确定选中的菜单项
+  const currentPath = location.pathname;
 
   const menuItems = [
     {
@@ -58,7 +62,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
         <Menu 
           theme="light" 
-          defaultSelectedKeys={['/']} 
+          selectedKeys={[currentPath]} 
           mode="inline"
           items={menuItems}
           onClick={({ key }) => {
