@@ -1,4 +1,5 @@
-import { Memory, MemoryType } from '../types';
+import { Memory } from '../types/memory';
+import { MemoryType } from '../types/memory';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from '../utils/logger';
 import { EmbeddingProvider } from './embedding/EmbeddingProvider';

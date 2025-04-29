@@ -1,5 +1,6 @@
 import { ToolService } from '../../services/tools';
-import { Goal, Memory } from '../../types';
+import { Goal } from '../../types';
+import { Memory } from '../../types/memory';
 import { AgentKaiConfig } from '../../types/config';
 import { Message } from '../../types/message';
 import { ConversationManager } from '../conversation/ConversationManager';

@@ -1,5 +1,5 @@
 import { Logger } from '../../utils/logger';
-import { ToolService } from '../../services/tools';
+import { ToolManager } from '../tools/ToolManager';
 import { Plugin } from './plugin';
 /**
  * 插件管理器
@@ -8,16 +8,17 @@ import { Plugin } from './plugin';
 export class PluginManager {
   private plugins: Plugin[] = [];
   private logger: Logger;
-  private toolService: ToolService;
+  private toolManager: ToolManager;
   
   /**
    * 构造函数
+   * @param toolManager 工具管理器
    * @param plugins 初始插件列表
    */
-  constructor(plugins: Plugin[] = []) {
+  constructor(toolManager: ToolManager, plugins: Plugin[] = []) {
     this.plugins = [...plugins];
     this.logger = new Logger('PluginManager');
-    this.toolService = ToolService.getInstance();
+    this.toolManager = toolManager;
     this.logger.info(`插件管理器初始化，加载了 ${plugins.length} 个插件`);
   }
   
@@ -45,14 +46,14 @@ export class PluginManager {
     for (const plugin of this.plugins) {
       try {
         const tools = plugin.getTools();
-        this.toolService.registerTools(tools);
+        this.toolManager.registerTools(tools);
         this.logger.info(`成功注册插件 ${plugin.getName()} 的工具，共 ${tools.length} 个`);
       } catch (error) {
         this.logger.error(`注册插件 ${plugin.getName()} 的工具失败`, error);
       }
     }
     
-    this.logger.info(`工具服务中已注册共计 ${this.toolService.getAllTools().length} 个工具`);
+    this.logger.info(`工具服务中已注册共计 ${this.toolManager.getAllTools().length} 个工具`);
   }
   
   /**
@@ -72,7 +73,7 @@ export class PluginManager {
     // 注册新插件的工具
     try {
       const tools = plugin.getTools();
-      this.toolService.registerTools(tools);
+      this.toolManager.registerTools(tools);
       this.logger.info(`成功注册插件 ${plugin.getName()} 的工具，共 ${tools.length} 个`);
     } catch (error) {
       this.logger.error(`注册插件 ${plugin.getName()} 的工具失败`, error);

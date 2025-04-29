@@ -36,6 +36,7 @@
   "license": "MIT",
   "dependencies": {
     "@agentkai/core": "workspace:*",
+    "@isomorphic-git/lightning-fs": "^4.6.1",
     "hnswlib-wasm": "^0.8.2"
   },
   "devDependencies": {

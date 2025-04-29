@@ -1,4 +1,4 @@
-import { ToolRegistration } from "../../types";
+import { ToolRegistration } from '../../types/tool';
 
 export interface Plugin {
     getName(): string;

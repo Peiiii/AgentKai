@@ -1,14 +1,8 @@
 import { MemorySystem } from '../memory/MemorySystem';
-import { MemoryType } from '../types';
+import { Tool } from '../types';
+import { CreateMemoryInput, MemoryType } from '../types/memory';
 import { Logger } from '../utils/logger';
 
-// 记忆插件工具函数定义
-type MemoryTool = {
-  name: string;
-  description: string;
-  parameters: any[];
-  handler: (params: any) => Promise<any>;
-};
 
 /**
  * 记忆管理工具插件，提供记忆相关功能
@@ -34,37 +28,37 @@ export class MemoryPlugin {
    * 获取该插件提供的工具
    * @returns 工具配置数组
    */
-  getTools(): MemoryTool[] {
+  getTools(): Tool[] {
     return [
       {
         name: 'addMemory',
         description: '添加新的记忆到长期记忆',
-        parameters: [
-          {
-            name: 'content',
-            type: 'string',
-            description: '记忆内容',
-            required: true
+        parameters: {
+          type: 'object',
+          properties: {
+            content: {
+              type: 'string',
+              description: '记忆内容'
+            },
+            type: {
+              type: 'string',
+              description: '记忆类型 (observation, reflection, conversation, fact, plan)'
+            },
+            importance: {
+              type: 'number',
+              description: '记忆重要性 (0-1)'
+            }
           },
-          {
-            name: 'type',
-            type: 'string',
-            description: '记忆类型 (observation, reflection, conversation, fact, plan)',
-            required: false
-          },
-          {
-            name: 'importance',
-            type: 'number',
-            description: '记忆重要性 (0-1)',
-            required: false
-          }
-        ],
-        handler: async ({ content, type = 'observation', importance = 0.5 }) => {
-          this.logger.info('添加新记忆', { type, contentLength: content.length });
+          required: ['content']
+        },
+        handler: async (params: CreateMemoryInput) => {
+          this.logger.info('添加新记忆', { params });
+          const { content, type, importance } = params;
+          this.logger.info('添加新记忆', { type, contentLength: content?.length });
           
           // 验证记忆类型
           let memoryType: MemoryType;
-          switch(type.toLowerCase()) {
+          switch(type?.toLowerCase()) {
             case 'observation':
               memoryType = MemoryType.OBSERVATION;
               break;
@@ -98,26 +92,24 @@ export class MemoryPlugin {
       {
         name: 'searchMemory',
         description: '搜索记忆',
-        parameters: [
-          {
-            name: 'query',
-            type: 'string',
-            description: '搜索查询',
-            required: true
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: '搜索查询'
+            },
+            limit: {
+              type: 'number',
+              description: '返回结果数量限制'
+            },
+            type: {
+              type: 'string',
+              description: '记忆类型筛选'
+            }
           },
-          {
-            name: 'limit',
-            type: 'number',
-            description: '返回结果数量限制',
-            required: false
-          },
-          {
-            name: 'type',
-            type: 'string',
-            description: '记忆类型筛选',
-            required: false
-          }
-        ],
+          required: ['query']
+        },
         handler: async ({ query, limit = 5, type = null }) => {
           this.logger.info('搜索记忆', { query, limit, type });
           
@@ -168,20 +160,20 @@ export class MemoryPlugin {
       {
         name: 'getRecentMemories',
         description: '获取最近的记忆',
-        parameters: [
-          {
-            name: 'limit',
-            type: 'number',
-            description: '返回结果数量限制',
-            required: false
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: '返回结果数量限制'
+            },
+            type: {
+              type: 'string',
+              description: '记忆类型筛选'
+            }
           },
-          {
-            name: 'type',
-            type: 'string',
-            description: '记忆类型筛选',
-            required: false
-          }
-        ],
+          required: []
+        },
         handler: async ({ limit = 5, type = null }) => {
           this.logger.info('获取最近记忆', { limit, type });
           
@@ -219,14 +211,16 @@ export class MemoryPlugin {
       {
         name: 'deleteMemory',
         description: '删除指定ID的记忆',
-        parameters: [
-          {
-            name: 'id',
-            type: 'string',
-            description: '记忆ID',
-            required: true
-          }
-        ],
+        parameters: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: '记忆ID'
+            }
+          },
+          required: ['id']
+        },
         handler: async ({ id }) => {
           this.logger.info('删除记忆', { id });
           
@@ -240,7 +234,11 @@ export class MemoryPlugin {
       {
         name: 'clearAllMemories',
         description: '清空所有记忆（谨慎使用！）',
-        parameters: [],
+        parameters: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
         handler: async () => {
           this.logger.warn('清空所有记忆');
           

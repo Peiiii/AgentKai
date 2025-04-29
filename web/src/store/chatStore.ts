@@ -249,7 +249,7 @@ export const useChatStore = create<ChatState>()(
                         const api = await import('../api/agent').then((m) => m.AgentAPI.getInstance());
                         await api.processMessageStreamWithTools({
                             content,
-                            tools,
+                            tools:[],
                             onPartEvent: (event) => {
                                 console.log('[useChatStore] [sendMessageWithTools] [onPartEvent]:', event);
                                 switch (event.type) {

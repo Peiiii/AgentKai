@@ -1,7 +1,8 @@
-import { AISystem, platform } from '@agentkai/browser';
+import { AISystem, browserPlatform } from '@agentkai/browser';
 import {
     DefaultToolCallProcessor,
     Memory,
+    MemoryPlugin,
     MessagePart,
     OpenAIModel,
     PartsTrackerEvent,
@@ -57,6 +58,8 @@ export class AgentAPI {
 
         // 创建AISystem实例，带配置和模型
         this.aiSystem = new AISystem(config, model, [], this.toolCallProcessor);
+        this.aiSystem.pluginManager.addPlugin(new MemoryPlugin(this.aiSystem.memory));
+        (window as any).aiSystem = this.aiSystem;
     }
 
     public static getInstance(): AgentAPI {
@@ -74,7 +77,7 @@ export class AgentAPI {
 
         try {
             // 确保浏览器平台已初始化
-            await platform.fs.mkdir('/', { recursive: true });
+            await browserPlatform.fs.mkdir('/', { recursive: true });
 
             // 初始化AI系统
             await this.aiSystem.initialize();
@@ -133,12 +136,26 @@ export class AgentAPI {
         onPartEvent?: (event: PartsTrackerEvent) => void;
         maxIterations?: number;
     }): Promise<void> {
-        const { content, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent, maxIterations } = params;
+        const {
+            content,
+            tools,
+            onChunk,
+            onToolCall,
+            onToolResult,
+            onPartsChange,
+            onPartEvent,
+            maxIterations,
+        } = params;
         await this.ensureInitialized();
 
         try {
             // 使用流式处理
-            console.log('[AgentAPI] [processMessageStreamWithTools] [content]:', content, "tools:", tools);
+            console.log(
+                '[AgentAPI] [processMessageStreamWithTools] [content]:',
+                content,
+                'tools:',
+                tools
+            );
             await this.aiSystem.processInputStreamWithTools({
                 input: content,
                 tools,

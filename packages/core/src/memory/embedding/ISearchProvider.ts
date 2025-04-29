@@ -1,4 +1,4 @@
-import { Memory } from '../../types';
+import { Memory } from '../../types/memory';
 
 /**
  * 搜索选项接口

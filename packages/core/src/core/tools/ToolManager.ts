@@ -1,45 +1,16 @@
-import { ToolRegistration } from '../types/tool';
-import { Tool } from '../types/tool';
-import { Logger } from '../utils/logger';
-
-// /**
-//  * 工具参数类型定义
-//  */
-// export interface ToolParameter {
-//     name: string;
-//     type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-//     description: string;
-//     required: boolean;
-//     default?: any;
-// }
+import { ToolRegistration } from '../../types/tool';
+import { Tool } from '../../types/tool';
+import { Logger } from '../../utils/logger';
 
 /**
-//  * 工具参数集合
-//  */
-// export interface ToolParameters {
-//     [key: string]: any; // 这里改回any以保持向后兼容
-// }
-
-/**
- * 工具管理服务，负责工具的注册和执行
+ * 工具管理器，负责工具的注册和执行
  */
-export class ToolService {
-    private static instance: ToolService;
+export class ToolManager {
     private tools: Map<string, Tool> = new Map();
     private logger: Logger;
 
-    private constructor() {
-        this.logger = new Logger('ToolService');
-    }
-
-    /**
-     * 获取ToolService单例
-     */
-    static getInstance(): ToolService {
-        if (!ToolService.instance) {
-            ToolService.instance = new ToolService();
-        }
-        return ToolService.instance;
+    constructor() {
+        this.logger = new Logger('ToolManager');
     }
 
     /**
@@ -152,4 +123,4 @@ export class ToolService {
         this.logger.info(`工具 ${name} 已取消注册`);
         return result;
     }
-}
+} 

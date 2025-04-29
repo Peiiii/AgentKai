@@ -1,21 +1,21 @@
 import { BaseConfigService, PlatformServices } from '@agentkai/core';
-import { platform } from '../platform';
+import { browserPlatform } from '../platform';
 
 /**
  * 配置服务，用于管理所有配置
  */
 export class ConfigService extends BaseConfigService {
     getPlatform(): PlatformServices {
-        return platform;
+        return browserPlatform;
     }
     ensureDirExists(): void {
-        this.checkAndCreateDir(platform.path.join(platform.path.home(), '.agentkai'));
-        this.checkAndCreateDir(platform.path.join(platform.path.home(), '.agentkai', 'goals'));
-        this.checkAndCreateDir(platform.path.join(platform.path.home(), '.agentkai', 'memory'));
+        this.checkAndCreateDir(browserPlatform.path.join(browserPlatform.path.home(), '.agentkai'));
+        this.checkAndCreateDir(browserPlatform.path.join(browserPlatform.path.home(), '.agentkai', 'goals'));
+        this.checkAndCreateDir(browserPlatform.path.join(browserPlatform.path.home(), '.agentkai', 'memory'));
     }
     private checkAndCreateDir(dir: string): void {
-        if (!platform.fs.exists(dir)) {
-            platform.fs.mkdir(dir, { recursive: true });
+        if (!browserPlatform.fs.exists(dir)) {
+            browserPlatform.fs.mkdir(dir, { recursive: true });
         }
     }
 }

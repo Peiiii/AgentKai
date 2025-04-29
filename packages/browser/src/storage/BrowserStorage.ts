@@ -1,10 +1,14 @@
 import { QueryOptions, StorageProvider } from '@agentkai/core';
-import { platform } from '../platform';
+import { browserPlatform } from '../platform';
 /**
  * 基于浏览器文件系统(IndexedDB)的存储实现
  * 使用平台抽象层的BrowserFileSystem进行实际的文件操作
  */
 export class BrowserStorage<T extends { id: string }> extends StorageProvider<T> {
+
+    private platform = browserPlatform;
+
+    
     /**
      * 创建BrowserStorage实例
      * @param basePath 数据存储的基础路径
@@ -22,7 +26,7 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
         try {
             const filePath = this.getFilePath(data.id);
             const serialized = JSON.stringify(data, null, 2);
-            await platform.fs.writeFile(filePath, serialized);
+            await browserPlatform.fs.writeFile(filePath, serialized);
         } catch (error) {
             throw new Error(`Failed to save data: ${(error as Error).message}`);
         }
@@ -35,11 +39,11 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
         try {
             const filePath = this.getFilePath(id);
             
-            if (!await platform.fs.exists(filePath)) {
+            if (!await browserPlatform.fs.exists(filePath)) {
                 return null;
             }
 
-            const content = await platform.fs.readFile(filePath);
+            const content = await browserPlatform.fs.readFile(filePath);
             return JSON.parse(content) as T;
         } catch (error) {
             return null;
@@ -53,11 +57,11 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
         try {
             const filePath = this.getFilePath(id);
             
-            if (!await platform.fs.exists(filePath)) {
+            if (!await this.platform.fs.exists(filePath)) {
                 return;
             }
             
-            await platform.fs.unlink(filePath);
+            await this.platform.fs.unlink(filePath);
         } catch (error) {
             throw new Error(`Failed to delete data: ${(error as Error).message}`);
         }
@@ -70,19 +74,19 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
         try {
             const dirPath = this.basePath;
             
-            if (!await platform.fs.exists(dirPath)) {
+            if (!await this.platform.fs.exists(dirPath)) {
                 return [];
             }
             
-            const files = await platform.fs.readdir(dirPath);
+            const files = await this.platform.fs.readdir(dirPath);
             const jsonFiles = files.filter(file => file.endsWith('.json'));
             
             const results: T[] = [];
             
             for (const file of jsonFiles) {
                 try {
-                    const filePath = platform.path.join(dirPath, file);
-                    const content = await platform.fs.readFile(filePath);
+                    const filePath = this.platform.path.join(dirPath, file);
+                        const content = await this.platform.fs.readFile(filePath);
                     const data = JSON.parse(content) as T;
                     results.push(data);
                 } catch (err) {
@@ -134,17 +138,17 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
         try {
             const dirPath = this.basePath;
             
-            if (!await platform.fs.exists(dirPath)) {
+            if (!await this.platform.fs.exists(dirPath)) {
                 return;
             }
             
-            const files = await platform.fs.readdir(dirPath);
+            const files = await this.platform.fs.readdir(dirPath);
             const jsonFiles = files.filter(file => file.endsWith('.json'));
             
             for (const file of jsonFiles) {
                 try {
-                    const filePath = platform.path.join(dirPath, file);
-                    await platform.fs.unlink(filePath);
+                    const filePath = this.platform.path.join(dirPath, file);
+                    await this.platform.fs.unlink(filePath);
                 } catch (err) {
                     // 继续处理其他文件
                 }
@@ -162,8 +166,8 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
         try {
             const dirPath = this.basePath;
             
-            if (!await platform.fs.exists(dirPath)) {
-                await platform.fs.mkdir(dirPath, { recursive: true });
+            if (!await this.platform.fs.exists(dirPath)) {
+                await this.platform.fs.mkdir(dirPath, { recursive: true });
             }
         } catch (error) {
             throw new Error(`Failed to ensure directory exists: ${(error as Error).message}`);
@@ -176,7 +180,7 @@ export class BrowserStorage<T extends { id: string }> extends StorageProvider<T>
     private getFilePath(id: string): string {
         // 确保ID是有效的文件名，移除不允许的字符
         const safeId = id.replace(/[/\\?%*:|"<>]/g, '-');
-        return platform.path.join(this.basePath, `${safeId}.json`);
+        return this.platform.path.join(this.basePath, `${safeId}.json`);
     }
 
     /**

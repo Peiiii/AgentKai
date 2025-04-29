@@ -70,7 +70,8 @@ const memoryTools: Tool<{ content: string; importance?: number }, Memory>[] = [
 ];
 
 // 合并所有工具
-const allTools = [...availableTools, ...memoryTools] as Tool<unknown, unknown>[];
+const allTools = [] as Tool<unknown, unknown>[];
+// const allTools = [...availableTools, ...memoryTools] as Tool<unknown, unknown>[];
 
 // 主聊天应用组件
 function ChatApp() {

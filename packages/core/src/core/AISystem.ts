@@ -3,9 +3,11 @@ import { MemorySystem } from '../memory/MemorySystem';
 import { EmbeddingProvider, OpenAIEmbeddingProvider } from '../memory/embedding';
 import { ISearchProvider } from '../memory/embedding/ISearchProvider';
 import { BaseConfigService } from '../services/config';
-import { ToolService } from '../services/tools';
 import { StorageProvider } from '../storage/StorageProvider';
-import { AIModel, Goal, GoalStatus, Memory, MemoryType, SystemResponse, Tool } from '../types';
+import { AIModel, Goal, GoalStatus, SystemResponse } from '../types';
+import { Memory } from '../types/memory';
+import { MemoryType } from '../types/memory';
+import { Tool } from '../types/tool';
 import { AgentKaiConfig } from '../types/config';
 import { ToolCall } from '../types/tool-call';
 import { ToolResult } from '../types/ui-message';
@@ -18,13 +20,14 @@ import { Plugin } from './plugins/plugin';
 import { PromptBuilder } from './prompts/PromptBuilder';
 import { MessageChunk, MessagePart, PartsTracker, PartsTrackerEvent } from './response/PartsTracker';
 import { ResponseProcessor } from './response/ResponseProcessor';
+import { ToolManager } from './tools/ToolManager';
 import { DefaultToolCallProcessor, ToolCallProcessor } from './tools/ToolCallProcessor';
 
 /**
  * AISystem作为核心协调类，负责整合和管理各个子系统
  */
 export class BaseAISystem {
-    private memory: MemorySystem;
+    public memory: MemorySystem;
     private goals: GoalManager;
     private model: AIModel;
     private logger: Logger;
@@ -34,12 +37,42 @@ export class BaseAISystem {
 
     // 新的组件
     public conversation: ConversationManager;
-    private pluginManager: PluginManager;
+    public pluginManager: PluginManager;
     private responseProcessor: ResponseProcessor;
     private promptBuilder: PromptBuilder;
     private toolCallProcessor: ToolCallProcessor;
+    public toolManager: ToolManager;
 
     private configService: BaseConfigService;
+
+    constructor(
+        config: AgentKaiConfig,
+        model: AIModel,
+        plugins: Plugin[] = [],
+        toolCallProcessor?: ToolCallProcessor
+    ) {
+        this.logger = new Logger('AISystem');
+        this.performance = new PerformanceMonitor('AISystem');
+        this.config = config;
+        this.model = model;
+        this.configService = this.createConfigService();
+        this.toolCallProcessor = toolCallProcessor || new DefaultToolCallProcessor();
+        
+        // 初始化工具管理器
+        this.toolManager = new ToolManager();
+
+        // 初始化记忆系统
+        this.memory = this.createMemorySystem();
+
+        // 初始化目标系统
+        this.goals = this.createGoalManager();
+
+        // 初始化新组件
+        this.conversation = new ConversationManager(10); // 保留最近10条消息
+        this.pluginManager = new PluginManager(this.toolManager, plugins);
+        this.responseProcessor = new ResponseProcessor(this.logger);
+        this.promptBuilder = new PromptBuilder(config, this.conversation, this.memory, this.goals);
+    }
 
     createConfigService(): BaseConfigService {
         throw new Error('Not implemented');
@@ -89,32 +122,6 @@ export class BaseAISystem {
         throw new Error('Not implemented');
     }
 
-    constructor(
-        config: AgentKaiConfig,
-        model: AIModel,
-        plugins: Plugin[] = [],
-        toolCallProcessor?: ToolCallProcessor
-    ) {
-        this.logger = new Logger('AISystem');
-        this.performance = new PerformanceMonitor('AISystem');
-        this.config = config;
-        this.model = model;
-        this.configService = this.createConfigService();
-        this.toolCallProcessor = toolCallProcessor || new DefaultToolCallProcessor();
-
-        // 初始化记忆系统
-        this.memory = this.createMemorySystem();
-
-        // 初始化目标系统
-        this.goals = this.createGoalManager();
-
-        // 初始化新组件
-        this.conversation = new ConversationManager(10); // 保留最近10条消息
-        this.pluginManager = new PluginManager(plugins);
-        this.responseProcessor = new ResponseProcessor(this.logger);
-        this.promptBuilder = new PromptBuilder(config, this.conversation, this.memory, this.goals);
-    }
-
     async initialize(): Promise<void> {
         // 初始化目标系统
         await this.goals.initialize();
@@ -132,6 +139,10 @@ export class BaseAISystem {
 
     getMemorySystem(): MemorySystem {
         return this.memory;
+    }
+    
+    getToolManager(): ToolManager {
+        return this.toolManager;
     }
 
     async processInput(input: string): Promise<SystemResponse> {
@@ -357,10 +368,6 @@ export class BaseAISystem {
         this.logger.info('对话历史已清除');
     }
 
-    getToolService(): ToolService {
-        return ToolService.getInstance();
-    }
-
     /**
      * 处理输入并返回流式响应
      * @param input 用户输入
@@ -417,6 +424,14 @@ export class BaseAISystem {
         onPartEvent?: (event: PartsTrackerEvent) => void;
         maxIterations?: number; // 新增：最大循环次数
     }): Promise<string> {
+        // 合并外部传入的tools和toolManager中的tools
+        const managerTools = this.toolManager.getAllTools();
+        const uniqueTools = this.mergeTools([...params.tools, ...managerTools]);
+        const paramsWithMergedTools = {
+            ...params,
+            tools: uniqueTools
+        };
+
         // 循环控制逻辑
         const currentInput = params.input;
         let iterations = 0;
@@ -425,6 +440,8 @@ export class BaseAISystem {
         
         // 记录处理开始时间
         const startTime = Date.now();
+        
+        this.logger.info(`处理流式输入，合并了 ${params.tools.length} 个外部工具和 ${managerTools.length} 个系统工具，实际使用 ${uniqueTools.length} 个唯一工具`);
         
         // 创建一个共享的 PartsTracker 实例，所有迭代都使用它
         const sharedPartsTracker = new PartsTracker();
@@ -447,7 +464,7 @@ export class BaseAISystem {
                 
                 // 处理单轮对话，传入共享的 PartsTracker
                 const result = await this.processSingleIteration({
-                    ...params,
+                    ...paramsWithMergedTools,
                     input: iterations === 0 ? currentInput : '', // 后续迭代不需要输入
                     iterationIndex: iterations,
                     continueFromToolResults: iterations > 0, // 标记是否是基于工具结果继续
@@ -499,6 +516,22 @@ export class BaseAISystem {
             });
             throw error;
         }
+    }
+
+    /**
+     * 合并工具，确保名称唯一性
+     * 当有重复工具时，保留第一个出现的
+     */
+    private mergeTools(tools: Tool[]): Tool[] {
+        const uniqueTools = new Map<string, Tool>();
+        
+        for (const tool of tools) {
+            if (!uniqueTools.has(tool.name)) {
+                uniqueTools.set(tool.name, tool);
+            }
+        }
+        
+        return Array.from(uniqueTools.values());
     }
 
     /**
@@ -785,7 +818,7 @@ export class BaseAISystem {
         
         const toolStartTime = Date.now();
         try {
-            const result = await tool.handler(toolCall.function.arguments);
+            const result = await tool.handler(this.safeParseJson(toolCall.function.arguments));
             const toolResult: ToolResult<string, Record<string, any>, any> = {
                 toolCallId: toolCall.id,
                 toolName,

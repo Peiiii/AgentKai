@@ -1,6 +1,8 @@
 import { ConversationMessage } from '../core';
 import { MessageChunk, MessagePart, PartsTrackerEvent } from '../core/response/PartsTracker';
+import { Memory } from './memory';
 import { Message, StreamChunk } from './message';
+import { Tool } from './tool';
 import { ToolResult } from './ui-message';
 
 // 基础类型定义
@@ -35,26 +37,6 @@ export interface Context {
     environment: Record<string, any>; // 环境信息
 }
 
-// 记忆相关类型
-export interface Memory {
-    id: string;
-    content: string;
-    type: MemoryType;
-    createdAt: number;
-    embedding?: Vector;
-    metadata: Record<string, any>;
-}
-
-export interface MemoryQuery {
-    content?: string;
-    type?: Memory['type'];
-    timeRange?: {
-        start: Timestamp;
-        end: Timestamp;
-    };
-    limit?: number;
-}
-
 // 目标相关类型
 export interface Goal {
     id: string;
@@ -69,30 +51,6 @@ export interface Goal {
     subGoals: string[];
     metadata: Record<string, any>;
     metrics: Record<string, number>;
-}
-
-// 工具相关类型
-export interface ToolParameter {
-    name: string;
-    type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-    description: string;
-    required: boolean;
-    default?: any;
-}
-
-/**
- * 工具处理函数类型
- */
-export type ToolHandler<T = any, R = any> = (args: T) => Promise<R>;
-
-/**
- * 工具定义接口
- */
-export interface Tool<T = any, R = any> {
-    name: string;
-    description: string;
-    parameters: JSONSchemaDefinition; // 这里改回any以保持向后兼容
-    handler: ToolHandler<T, R>;
 }
 
 /**
@@ -111,13 +69,6 @@ export interface JSONSchemaDefinition {
     type: 'object';
     properties: Record<string, JSONSchemaProperty>;
     required?: string[];
-}
-
-/**
- * 工具注册配置
- */
-export interface ToolRegistration<T = any, R = any> extends Omit<Tool<T, R>, 'handler'> {
-    handler: ToolHandler<T, R>;
 }
 
 // 系统状态
@@ -190,14 +141,10 @@ export interface SystemResponse {
     toolResult?: ToolResult<string, Record<string, any>, any>;
 }
 
-export enum MemoryType {
-    OBSERVATION = 'observation',
-    REFLECTION = 'reflection',
-    CONVERSATION = 'conversation',
-    FACT = 'fact',
-    PLAN = 'plan',
-}
-
 export * from './tool-call';
 
 export * from './ui-message';
+
+export * from './tool';
+
+export * from './memory';
