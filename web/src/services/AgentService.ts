@@ -1,11 +1,4 @@
 // 消息接口
-export interface Message {
-    id: string;
-    content: string;
-    isAgent: boolean;
-    timestamp: Date;
-}
-
 // 导入浏览器平台服务
 import browserPlatform from '@agentkai/browser';
 import { Goal, GoalStatus, Memory, MemoryType } from '@agentkai/core';

@@ -44,4 +44,7 @@ export * from './plugins/memory-plugin';
 // 10. 平台抽象层
 export * from './platform/interfaces';
 
+// 11. 工具调用处理器
+export * from './core/tools/ToolCallProcessor';
+
 // 其他导出内容将根据需要添加

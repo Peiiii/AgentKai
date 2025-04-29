@@ -1,16 +1,11 @@
+import { Memory } from '@agentkai/core';
 import { AgentAPI } from '../../api/agent';
-import { Memory } from '../../components/MemoryCard';
-import { Message } from '../../models/Message';
+import { Message } from '../../types/message';
 
 // 定义一个接口来替代any类型
 interface Conversation {
   id?: string;
-  messages?: Array<{
-    id?: string;
-    content?: string;
-    role?: string;
-    timestamp?: number;
-  }>;
+  messages?: Message[];
 }
 
 /**
@@ -69,8 +64,9 @@ export class AgentService {
       const agentMessage: Message = {
         id: `agent_${Date.now()}`,
         content: response.content,
-        isAgent: true,
+        role: 'assistant',
         timestamp: new Date(),
+        type: 'text',
         status: 'sent'
       };
       
@@ -83,8 +79,9 @@ export class AgentService {
       const errorResponse: Message = {
         id: `error_${Date.now()}`,
         content: `处理消息时出错: ${errorMessage}`,
-        isAgent: true,
+        role: 'assistant',
         timestamp: new Date(),
+        type: 'text',
         status: 'error',
         error: errorMessage
       };
@@ -108,9 +105,11 @@ export class AgentService {
           return conversation.messages.map(msg => ({
             id: msg.id || `msg_${Date.now()}_${Math.random()}`,
             content: msg.content || '',
-            isAgent: msg.role === 'assistant',
+            role: msg.role as 'assistant' | 'user' | 'system' | 'tool',
             timestamp: new Date(msg.timestamp || Date.now()),
-            status: 'sent'
+            status: 'sent',
+            type: 'text'
+            
           }));
         }
         return [];
@@ -147,7 +146,7 @@ export class AgentService {
         content: mem.content,
         category: mem.type,
         importance: Number(mem.metadata?.importance || 0),
-        createdAt: new Date(mem.createdAt),
+        timestamp: Number(mem.createdAt),
         tags: Array.isArray(mem.metadata?.tags) ? mem.metadata.tags : []
       }));
       

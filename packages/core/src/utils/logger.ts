@@ -70,7 +70,7 @@ const DEFAULT_LOGGER_OPTIONS: LoggerOptions = {
  */
 export class Logger {
   private module: string;
-  private static globalLogLevel: LogLevel = LogLevel.INFO; 
+  private static globalLogLevel: LogLevel = LogLevel.DEBUG; 
   private static globalOptions: LoggerOptions = { ...DEFAULT_LOGGER_OPTIONS };
   private options: LoggerOptions;
 

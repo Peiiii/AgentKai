@@ -1,4 +1,14 @@
-import { AISystem, platform, OpenAIModel, Memory } from '@agentkai/browser';
+import { AISystem, platform } from '@agentkai/browser';
+import {
+    DefaultToolCallProcessor,
+    Memory,
+    MessagePart,
+    OpenAIModel,
+    PartsTrackerEvent,
+    Tool,
+    ToolCall,
+    ToolResult,
+} from '@agentkai/core';
 
 /**
  * 数据访问层 - 封装对AISystem的直接访问
@@ -7,6 +17,7 @@ export class AgentAPI {
     private static instance: AgentAPI | null = null;
     private aiSystem: AISystem;
     private initialized = false;
+    private toolCallProcessor: DefaultToolCallProcessor;
 
     private constructor() {
         // 从环境变量读取配置
@@ -19,7 +30,8 @@ export class AgentAPI {
                 modelName: import.meta.env.VITE_MODEL_NAME || 'gpt-4o',
                 apiBaseUrl: import.meta.env.VITE_OPENAI_API_BASE_URL || 'https://api.openai.com/v1',
                 embeddingModel: import.meta.env.VITE_EMBEDDING_MODEL || 'text-embedding-v3',
-                embeddingBaseUrl: import.meta.env.VITE_EMBEDDING_BASE_URL || 'https://api.openai.com/v1',
+                embeddingBaseUrl:
+                    import.meta.env.VITE_EMBEDDING_BASE_URL || 'https://api.openai.com/v1',
                 embeddingDimensions: Number(import.meta.env.VITE_EMBEDDING_DIMENSIONS || '1024'),
             },
             memoryConfig: {
@@ -37,11 +49,14 @@ export class AgentAPI {
             },
         };
 
+        // 创建工具调用处理器
+        this.toolCallProcessor = new DefaultToolCallProcessor();
+
         // 创建模型实例
-        const model = new OpenAIModel(config.modelConfig);
-        
+        const model = new OpenAIModel(config.modelConfig, this.toolCallProcessor);
+
         // 创建AISystem实例，带配置和模型
-        this.aiSystem = new AISystem(config, model, []);
+        this.aiSystem = new AISystem(config, model, [], this.toolCallProcessor);
     }
 
     public static getInstance(): AgentAPI {
@@ -83,17 +98,55 @@ export class AgentAPI {
         onChunk: (chunk: string) => void
     ): Promise<void> {
         await this.ensureInitialized();
-        
+
         try {
             // 使用流式处理
             const stream = await this.aiSystem.processInputStream(content);
-            
+
             // 处理流式响应
             for await (const chunk of stream) {
                 if (chunk.output) {
                     onChunk(chunk.output);
                 }
             }
+        } catch (error) {
+            console.error('Stream processing error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 处理用户消息（带工具支持的流式输出）
+     * @param content 消息内容
+     * @param tools 可用工具列表
+     * @param onChunk 处理每个数据块的回调函数
+     * @returns 处理结果
+     */
+    public async processMessageStreamWithTools(params: {
+        content: string;
+        tools: Tool[];
+        onChunk?: (chunk: string) => void;
+        onToolCall?: (toolCall: ToolCall) => void;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onToolResult?: (toolResult: ToolResult<string, Record<string, any>, any>) => void;
+        onPartsChange?: (parts: MessagePart[]) => void;
+        onPartEvent?: (event: PartsTrackerEvent) => void;
+    }): Promise<void> {
+        const { content, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent } = params;
+        await this.ensureInitialized();
+
+        try {
+            // 使用流式处理
+            console.log('[AgentAPI] [processMessageStreamWithTools] [content]:', content, "tools:", tools);
+            await this.aiSystem.processInputStreamWithTools({
+                input: content,
+                tools,
+                onChunk,
+                onToolCall,
+                onToolResult,
+                onPartsChange,
+                onPartEvent,
+            });
         } catch (error) {
             console.error('Stream processing error:', error);
             throw error;
@@ -128,12 +181,12 @@ export class AgentAPI {
         const memories = await this.aiSystem.getAllMemories();
         // 转换为对话格式
         return memories
-            .filter(memory => memory.type === 'conversation')
-            .map(memory => ({
+            .filter((memory) => memory.type === 'conversation')
+            .map((memory) => ({
                 id: memory.id,
                 content: memory.content,
                 timestamp: memory.createdAt,
-                metadata: memory.metadata
+                metadata: memory.metadata,
             }));
     }
 
@@ -142,23 +195,26 @@ export class AgentAPI {
      */
     public async getGoals(): Promise<{ id: string; description: string; progress: number }[]> {
         await this.ensureInitialized();
-        
+
         try {
             // 从记忆中提取目标相关信息
             const memories = await this.aiSystem.getAllMemories();
-            
+
             // 过滤并转换记忆为目标格式
-            return memories
-                // 使用字符串比较而不是严格类型比较，以适应不同的MemoryType实现
-                .filter(memory => 
-                    typeof memory.type === 'string' && 
-                    (memory.type.includes('goal') || memory.type.includes('plan'))
-                )
-                .map(memory => ({
-                    id: memory.id,
-                    description: memory.content,
-                    progress: Number(memory.metadata?.progress || 0)
-                }));
+            return (
+                memories
+                    // 使用字符串比较而不是严格类型比较，以适应不同的MemoryType实现
+                    .filter(
+                        (memory) =>
+                            typeof memory.type === 'string' &&
+                            (memory.type.includes('goal') || memory.type.includes('plan'))
+                    )
+                    .map((memory) => ({
+                        id: memory.id,
+                        description: memory.content,
+                        progress: Number(memory.metadata?.progress || 0),
+                    }))
+            );
         } catch (error) {
             console.error('Failed to get goals:', error);
             return [];

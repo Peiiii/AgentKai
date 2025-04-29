@@ -5,8 +5,10 @@ import { ISearchProvider } from '../memory/embedding/ISearchProvider';
 import { BaseConfigService } from '../services/config';
 import { ToolService } from '../services/tools';
 import { StorageProvider } from '../storage/StorageProvider';
-import { AIModel, Goal, GoalStatus, Memory, MemoryType, SystemResponse } from '../types';
+import { AIModel, Goal, GoalStatus, Memory, MemoryType, SystemResponse, Tool } from '../types';
 import { AgentKaiConfig } from '../types/config';
+import { ToolCall } from '../types/tool-call';
+import { ToolResult } from '../types/ui-message';
 import { ModelError, wrapError } from '../utils/errors';
 import { Logger } from '../utils/logger';
 import { PerformanceMonitor } from '../utils/performance';
@@ -14,8 +16,9 @@ import { ConversationManager } from './conversation/ConversationManager';
 import { PluginManager } from './plugins/PluginManager';
 import { Plugin } from './plugins/plugin';
 import { PromptBuilder } from './prompts/PromptBuilder';
+import { MessageChunk, MessagePart, PartsTracker, PartsTrackerEvent } from './response/PartsTracker';
 import { ResponseProcessor } from './response/ResponseProcessor';
-
+import { DefaultToolCallProcessor, ToolCallProcessor } from './tools/ToolCallProcessor';
 
 /**
  * AISystem作为核心协调类，负责整合和管理各个子系统
@@ -30,10 +33,11 @@ export class BaseAISystem {
     private config: AgentKaiConfig | null = null;
 
     // 新的组件
-    private conversation: ConversationManager;
+    public conversation: ConversationManager;
     private pluginManager: PluginManager;
     private responseProcessor: ResponseProcessor;
     private promptBuilder: PromptBuilder;
+    private toolCallProcessor: ToolCallProcessor;
 
     private configService: BaseConfigService;
 
@@ -85,12 +89,18 @@ export class BaseAISystem {
         throw new Error('Not implemented');
     }
 
-    constructor(config: AgentKaiConfig, model: AIModel, plugins: Plugin[] = []) {
+    constructor(
+        config: AgentKaiConfig,
+        model: AIModel,
+        plugins: Plugin[] = [],
+        toolCallProcessor?: ToolCallProcessor
+    ) {
         this.logger = new Logger('AISystem');
         this.performance = new PerformanceMonitor('AISystem');
         this.config = config;
         this.model = model;
         this.configService = this.createConfigService();
+        this.toolCallProcessor = toolCallProcessor || new DefaultToolCallProcessor();
 
         // 初始化记忆系统
         this.memory = this.createMemorySystem();
@@ -102,12 +112,7 @@ export class BaseAISystem {
         this.conversation = new ConversationManager(10); // 保留最近10条消息
         this.pluginManager = new PluginManager(plugins);
         this.responseProcessor = new ResponseProcessor(this.logger);
-        this.promptBuilder = new PromptBuilder(
-            config,
-            this.conversation,
-            this.memory,
-            this.goals
-        );
+        this.promptBuilder = new PromptBuilder(config, this.conversation, this.memory, this.goals);
     }
 
     async initialize(): Promise<void> {
@@ -179,7 +184,10 @@ export class BaseAISystem {
             this.performance.start('generateResponse');
 
             // 添加用户输入到对话历史
-            this.conversation.addMessage('user', input);
+            this.conversation.addMessage({
+                role: 'user',
+                content: input,
+            });
 
             // 构建上下文
             const messages = this.promptBuilder.buildContextMessages(
@@ -234,7 +242,10 @@ export class BaseAISystem {
             this.performance.end('generateResponse');
 
             // 添加AI回复到对话历史（使用处理后的输出）
-            this.conversation.addMessage('assistant', finalOutput);
+            this.conversation.addMessage({
+                role: 'assistant',
+                content: finalOutput,
+            });
 
             // 不再自动添加记忆，由AI通过工具调用或用户手动添加
             this.logger.info('对话已存储到短期记忆，未自动添加到长期记忆');
@@ -359,32 +370,208 @@ export class BaseAISystem {
         try {
             // 构建提示
             const prompt = await this.promptBuilder.buildPrompt(input);
-            
+
             // 使用模型生成流式响应
             const stream = await this.model.generateStream([{ role: 'user', content: prompt }]);
-            
+
             // 处理每个响应块
             for await (const chunk of stream) {
                 if (chunk.type === 'text') {
                     // 处理响应
-                    const processedResponse = await this.responseProcessor.processResponse(chunk.content as string);
-                    
+                    const processedResponse = await this.responseProcessor.processResponse(
+                        chunk.content as string
+                    );
+
                     // 更新对话历史
-                    await this.conversation.addMessage('assistant', processedResponse.output || '');
-                    
+                    await this.conversation.addMessage({
+                        role: 'assistant',
+                        content: processedResponse.output || '',
+                    });
+
                     // 保存到记忆系统
                     await this.addMemory(processedResponse.output || '', {
                         type: MemoryType.CONVERSATION,
                         role: 'assistant',
-                        importance: 5
+                        importance: 5,
                     });
-                    
+
                     yield processedResponse;
                 }
             }
         } catch (error) {
             this.logger.error('流式处理失败', error);
             throw wrapError(error, '流式处理失败');
+        }
+    }
+
+    /**
+     * 处理带工具支持的流式输入
+     */
+    public async processInputStreamWithTools(params: {
+        input: string;
+        tools: Tool[];
+        onChunk?: (chunk: string) => void;
+        onToolCall?: (toolCall: ToolCall) => void;
+        onToolResult?: (toolResult: ToolResult<string, Record<string, any>, any>) => void;
+        onPartsChange?: (parts: MessagePart[]) => void;
+        onPartEvent?: (event: PartsTrackerEvent) => void;
+    }): Promise<string> {
+        const { input, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent } = params;
+        const startTime = Date.now();
+        console.log('[AISystem] [processInputStreamWithTools] [input]:', input, 'tools:', tools);
+        try {
+            // 记录输入和工具信息
+            this.logger.debug('开始处理带工具的流式输入', {
+                timestamp: new Date().toISOString(),
+                input,
+                availableTools: tools.map((t) => ({
+                    name: t.name,
+                    description: t.description,
+                    parameters: t.parameters,
+                })),
+            });
+
+            const messages = this.conversation.getHistory();
+            this.logger.debug('当前对话历史', {
+                messageCount: messages.length,
+                lastMessage: messages[messages.length - 1],
+            });
+
+            // 重置工具调用处理器
+            this.toolCallProcessor.reset();
+            
+            // 初始化一个新的 PartsTracker
+            const partsTracker = new PartsTracker();
+            
+            // 注册 PartsTracker 的订阅
+            if (onPartsChange) {
+                partsTracker.subscribeParts().subscribe(onPartsChange);
+            }
+            if (onPartEvent) {
+                partsTracker.subscribeEvents().subscribe(onPartEvent);
+            }
+            
+            // 创建 onAddChunk 回调函数，将其传递给模型
+            const handleAddChunk = (chunk: MessageChunk) => {
+                console.log('[AISystem] [processInputStreamWithTools] [handleAddChunk]:', chunk);
+               partsTracker.addChunk(chunk);
+            };
+
+            const response = await this.model.generateStreamWithTools({
+                messages: [...messages, { role: 'user', content: input }],
+                tools,
+                onPartsChange,
+                onPartEvent,
+                onAddChunk: handleAddChunk
+            });
+
+            let fullResponse = '';
+            let currentToolCall: ToolCall | null = null;
+            let currentToolName = '';
+            let chunkCount = 0;
+            let toolCallCount = 0;
+
+            for await (const chunk of response) {
+                chunkCount++;
+                console.log('[BaseAISystem] [processInputStreamWithTools] [chunk]:', chunk);
+                // 记录每个chunk的原始内容和处理时间
+                this.logger.debug('收到OpenAI流式响应chunk', {
+                    chunkNumber: chunkCount,
+                    timestamp: new Date().toISOString(),
+                    processingTime: Date.now() - startTime,
+                    chunk: JSON.stringify(chunk),
+                });
+
+                if (chunk.type === 'text') {
+                    fullResponse += chunk.content as string;
+                    onChunk?.(chunk.content as string);
+                } else if (chunk.type === 'tool_call') {
+                    const toolCall = chunk.content as ToolCall;
+                    currentToolCall = toolCall;
+                    currentToolName = toolCall.function.name;
+                    toolCallCount++;
+
+                    this.logger.debug('开始新的工具调用', {
+                        toolCallNumber: toolCallCount,
+                        toolName: currentToolName,
+                        timestamp: new Date().toISOString(),
+                    });
+
+                    onToolCall?.(currentToolCall);
+
+                    // 执行工具调用
+                    const tool = tools.find((t) => t.name === currentToolName);
+                    if (tool) {
+                        const toolStartTime = Date.now();
+                        try {
+                            const result = await tool.handler(toolCall.function.arguments);
+                            const toolResult: ToolResult<string, Record<string, any>, any> = {
+                                toolCallId: currentToolCall.id,
+                                toolName: currentToolName,
+                                args: JSON.parse(toolCall.function.arguments),
+                                result: result,
+                            };
+                            console.log('[AISystem] [processInputStreamWithTools] [toolResult]:', toolResult);
+                            this.logger.debug('工具执行结果', {
+                                toolResult,
+                                executionTime: Date.now() - toolStartTime,
+                                timestamp: new Date().toISOString(),
+                            });
+                            onToolResult?.(toolResult);
+                            partsTracker.addChunk({ type: 'tool_result', toolResult });
+
+                        } catch (error) {
+                            const toolResult: ToolResult<string, Record<string, any>, any> = {
+                                toolCallId: currentToolCall.id,
+                                toolName: currentToolName,
+                                args: JSON.parse(toolCall.function.arguments),
+                                result: error instanceof Error ? error.message : 'Unknown error',
+                            };
+                            this.logger.error('工具执行失败', {
+                                error,
+                                toolResult,
+                                executionTime: Date.now() - toolStartTime,
+                                timestamp: new Date().toISOString(),
+                            });
+                            partsTracker.addChunk({ type: 'tool_result', toolResult });
+                            onToolResult?.(toolResult);
+                        }
+                    }
+                    currentToolCall = null;
+                    currentToolName = '';
+                } else if (chunk.type === 'error') {
+                    this.logger.error('流式处理错误', {
+                        error: chunk.content,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+            }
+            
+            // 完成 PartsTracker 处理
+            partsTracker.complete();
+
+            // 记录完整响应和处理统计
+            const totalDuration = Date.now() - startTime;
+            this.logger.debug('流式处理完成', {
+                fullResponse,
+                statistics: {
+                    totalDuration,
+                    chunkCount,
+                    toolCallCount,
+                    averageChunkTime: totalDuration / chunkCount,
+                    timestamp: new Date().toISOString(),
+                },
+            });
+
+            return fullResponse;
+        } catch (error) {
+            const errorDuration = Date.now() - startTime;
+            this.logger.error('处理流式输入失败', {
+                error,
+                duration: errorDuration,
+                timestamp: new Date().toISOString(),
+            });
+            throw error;
         }
     }
 }

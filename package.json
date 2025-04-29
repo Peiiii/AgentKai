@@ -9,6 +9,7 @@
     "scripts": {
         "build": "pnpm -r build",
         "dev:cli": "pnpm --filter @agentkai/cli dev",
+        "dev:web": "pnpm --filter agentkai-web dev",
         "test": "pnpm -r test",
         "lint": "pnpm -r lint",
         "format": "pnpm -r format",
@@ -21,7 +22,7 @@
         "publish-all": "pnpm version-and-commit && pnpm release && git push && git push --tags",
         "link-global": "pnpm build && pnpm --filter @agentkai/cli install -g && pnpm --filter @agentkai/node install -g && pnpm --filter @agentkai/browser install -g && pnpm --filter @agentkai/core install -g",
         "deploy:web": "ossutil64 cp -r -u web/dist oss://agentkai -c ./.ossutilconfig.local"
-      },
+    },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/Peiiii/AgentKai.git"
@@ -46,11 +47,16 @@
     "license": "MIT",
     "devDependencies": {
         "@changesets/cli": "^2.27.1",
+        "@types/lodash-es": "^4.17.12",
         "@typescript-eslint/eslint-plugin": "^7.1.1",
         "@typescript-eslint/parser": "^7.1.1",
         "eslint": "^8.57.0",
         "husky": "^9.0.11",
         "prettier": "^3.2.5",
         "typescript": "^5.3.3"
+    },
+    "dependencies": {
+        "lodash-es": "^4.17.21",
+        "nanoid": "^5.1.5"
     }
 }

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { List, Typography, Input, Select, Button, Modal, Form, Tag, Spin, Empty, Radio } from 'antd';
+import { Memory, MemoryType } from '@agentkai/core';
 import { PlusOutlined, StarOutlined } from '@ant-design/icons';
+import { Button, Empty, Form, Input, List, Modal, Radio, Select, Spin, Tag, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { useMemoryStore } from '../store/memoryStore';
-import { Memory, MemoryCard } from './MemoryCard';
-
+import { MemoryCard } from './MemoryCard';
 const { Title } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
@@ -58,19 +58,15 @@ export const MemoryList: React.FC = () => {
   const handleAddMemory = async () => {
     try {
       const values = await form.validateFields();
-      
-      // 处理标签，将逗号分隔的标签转为数组
-      const tags = values.tags ? 
-        values.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : 
-        [];
-      
+    
       const newMemory: Memory = {
         id: `memory_${Date.now()}`,
         content: values.content,
-        category: values.category,
-        importance: values.importance || 0,
-        createdAt: new Date(),
-        tags,
+        createdAt: Date.now(),
+        type: MemoryType.OBSERVATION,
+        metadata: {
+          source: 'user',
+        },
       };
       
       await addMemory(newMemory);

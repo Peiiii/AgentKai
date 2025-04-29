@@ -6,7 +6,7 @@ type JSONObject = {
 };
 type JSONArray = JSONValue[];
 
-export interface ToolCall<NAME extends string, ARGS> {
+interface ToolCall<NAME extends string, ARGS> {
     /**
   ID of the tool call. This ID is used to match the tool call with the tool result.
    */

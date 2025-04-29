@@ -1,17 +1,12 @@
+import { ConversationMessage } from '../core';
+import { MessageChunk, MessagePart, PartsTrackerEvent } from '../core/response/PartsTracker';
 import { Message, StreamChunk } from './message';
+import { ToolResult } from './ui-message';
 
 // 基础类型定义
 export type UUID = string;
 export type Timestamp = number;
 export type Vector = number[];
-
-// 意识引擎相关类型
-export interface ConsciousnessState {
-    currentFocus: string;        // 当前关注点
-    emotionalState: string;      // 情感状态
-    selfAwareness: number;       // 自我认知程度
-    decisionConfidence: number;  // 决策信心
-}
 
 export interface Decision {
     id: string;
@@ -28,16 +23,16 @@ export interface Decision {
 }
 
 export interface Experience {
-    decision: Decision;         // 相关决策
-    success: boolean;           // 是否成功
-    feedback: string;           // 反馈信息
-    impact: Record<string, number>;  // 影响评估
+    decision: Decision; // 相关决策
+    success: boolean; // 是否成功
+    feedback: string; // 反馈信息
+    impact: Record<string, number>; // 影响评估
 }
 
 export interface Context {
-    memories: Memory[];         // 相关记忆
-    tools: Tool[];              // 可用工具
-    environment: Record<string, any>;  // 环境信息
+    memories: Memory[]; // 相关记忆
+    tools: Tool[]; // 可用工具
+    environment: Record<string, any>; // 环境信息
 }
 
 // 记忆相关类型
@@ -85,21 +80,6 @@ export interface ToolParameter {
     default?: any;
 }
 
-export interface ToolCall {
-    toolId: string;
-    parameters: Record<string, any>;
-    timestamp?: number;
-    originalText?: string;  // 工具调用的原始文本表示
-}
-
-export interface ToolResult {
-    success: boolean;
-    data?: any;
-    error?: string;
-    toolCall: ToolCall;
-}
-
-
 /**
  * 工具处理函数类型
  */
@@ -140,7 +120,6 @@ export interface ToolRegistration<T = any, R = any> extends Omit<Tool<T, R>, 'ha
     handler: ToolHandler<T, R>;
 }
 
-
 // 系统状态
 export interface SystemState {
     activeGoals: UUID[];
@@ -158,20 +137,40 @@ export enum GoalStatus {
     ACTIVE = 'active',
     COMPLETED = 'completed',
     FAILED = 'failed',
-    PENDING = 'pending'
+    PENDING = 'pending',
+}
+
+export interface IGenerateStreamWithToolsParams {
+    messages: ConversationMessage[];
+    tools: Tool[];
+    onPartsChange?: (parts: MessagePart[]) => void;
+    onPartEvent?: (event: PartsTrackerEvent) => void;
+    onAddChunk?: (chunk: MessageChunk) => void;
+    // onTextStart?: () => void;
+    // onTextChunk?: (chunk: string) => void;
+    // onTextEnd?: () => void;
+    // onReasoningStart?: () => void;
+    // onReasoningChunk?: (chunk: string) => void;
+    // onReasoningEnd?: () => void;
+    // /** start tool call message */
+    // onToolStart?: (tool: Tool) => void;
+    // /** end tool call message */
+    // onToolEnd?: (tool: Tool) => void;
 }
 
 // 扩展AIModel接口
 export interface AIModel {
     generateText(prompt: string): Promise<string>;
     generateDecision(context: Context): Promise<Decision>;
-    generateResponse(messages: Message[]): Promise<{ response: string; tokens: { prompt: number; completion: number } }>;
-    
+    generateResponse(
+        messages: Message[]
+    ): Promise<{ response: string; tokens: { prompt: number; completion: number } }>;
+
     // 流式输出方法
     generateStream(messages: Message[]): AsyncGenerator<StreamChunk>;
-    
+
     // 流式工具调用方法
-    generateStreamWithTools(messages: Message[], tools: Tool[]): AsyncGenerator<StreamChunk>;
+    generateStreamWithTools(params: IGenerateStreamWithToolsParams): AsyncGenerator<StreamChunk>;
 }
 
 // 系统响应接口
@@ -188,7 +187,7 @@ export interface SystemResponse {
         prompt: number;
         completion: number;
     };
-    toolResult?: ToolResult;
+    toolResult?: ToolResult<string, Record<string, any>, any>;
 }
 
 export enum MemoryType {
@@ -196,5 +195,9 @@ export enum MemoryType {
     REFLECTION = 'reflection',
     CONVERSATION = 'conversation',
     FACT = 'fact',
-    PLAN = 'plan'
+    PLAN = 'plan',
 }
+
+export * from './tool-call';
+
+export * from './ui-message';

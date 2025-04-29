@@ -1,16 +1,18 @@
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
-import { AIModel, Context, Decision, Tool } from '../types';
+import { DefaultToolCallProcessor, ToolCallProcessor } from '../core/tools/ToolCallProcessor';
+import { AIModel, Context, Decision, IGenerateStreamWithToolsParams } from '../types';
 import { ModelConfig } from '../types/config';
-import { Logger } from '../utils/logger';
 import { Message, StreamChunk } from '../types/message';
+import { Logger } from '../utils/logger';
 
 export class OpenAIModel implements AIModel {
     private client: OpenAI;
     private config: ModelConfig;
     private logger: Logger;
+    private toolCallProcessor: ToolCallProcessor;
 
-    constructor(config: ModelConfig) {
+    constructor(config: ModelConfig, toolCallProcessor?: ToolCallProcessor) {
         this.config = config;
         this.client = new OpenAI({
             apiKey: config.apiKey,
@@ -18,6 +20,7 @@ export class OpenAIModel implements AIModel {
             dangerouslyAllowBrowser: true,
         });
         this.logger = new Logger('OpenAIModel');
+        this.toolCallProcessor = toolCallProcessor || new DefaultToolCallProcessor();
     }
 
     async generateText(prompt: string): Promise<string> {
@@ -99,12 +102,12 @@ ${JSON.stringify(context.environment, null, 2)}
             return {
                 role: 'assistant',
                 content: msg.content,
-                tool_calls: msg.tool_calls.map(toolCall => ({
-                    id: toolCall.toolId,
+                tool_calls: msg.tool_calls.map((toolCall) => ({
+                    id: toolCall.id,
                     type: 'function',
                     function: {
-                        name: toolCall.parameters.name || '',
-                        arguments: JSON.stringify(toolCall.parameters),
+                        name: toolCall.function.name,
+                        arguments: JSON.stringify(toolCall.function.arguments),
                     },
                 })),
             };
@@ -124,7 +127,9 @@ ${JSON.stringify(context.environment, null, 2)}
         };
     }
 
-    async generateResponse(messages: Message[]): Promise<{ response: string; tokens: { prompt: number; completion: number } }> {
+    async generateResponse(
+        messages: Message[]
+    ): Promise<{ response: string; tokens: { prompt: number; completion: number } }> {
         try {
             const response = await this.client.chat.completions.create({
                 model: this.config.model,
@@ -156,6 +161,9 @@ ${JSON.stringify(context.environment, null, 2)}
                 stream: true,
             });
 
+            // 重置工具调用处理器
+            this.toolCallProcessor.reset();
+
             for await (const chunk of stream) {
                 const delta = chunk.choices[0]?.delta;
                 if (!delta) continue;
@@ -170,14 +178,19 @@ ${JSON.stringify(context.environment, null, 2)}
                 if (delta.tool_calls) {
                     for (const toolCall of delta.tool_calls) {
                         if (toolCall.function?.arguments) {
-                            yield {
-                                type: 'tool_call',
-                                content: {
-                                    toolId: toolCall.id || '',
-                                    parameters: JSON.parse(toolCall.function.arguments),
-                                    timestamp: Date.now(),
-                                },
-                            };
+                            // 使用工具调用处理器处理参数增量
+                            const processedToolCall = this.toolCallProcessor.processToolCallDelta(
+                                toolCall.index,
+                                toolCall
+                            );
+
+                            // 如果工具调用处理完成，则生成工具调用事件
+                            if (processedToolCall) {
+                                yield {
+                                    type: 'tool_call',
+                                    content: processedToolCall,
+                                };
+                            }
                         }
                     }
                 }
@@ -191,17 +204,25 @@ ${JSON.stringify(context.environment, null, 2)}
         }
     }
 
-    async *generateStreamWithTools(messages: Message[], tools: Tool[]): AsyncGenerator<StreamChunk> {
+    async *generateStreamWithTools(
+        params: IGenerateStreamWithToolsParams
+    ): AsyncGenerator<StreamChunk> {
         try {
+            const { 
+                messages, 
+                tools, 
+                onAddChunk  // 新增参数：onAddChunk 回调函数
+            } = params;
+            
             const stream = await this.client.chat.completions.create({
                 model: this.config.model,
-                messages: messages.map(this.mapMessageToOpenAI),
-                tools: tools.map(tool => ({
+                messages,
+                tools: tools.map((tool) => ({
                     type: 'function',
                     function: {
                         name: tool.name,
                         description: tool.description,
-                        parameters: tool.parameters as any, // 类型转换，因为OpenAI的类型定义更严格
+                        parameters: tool.parameters as any,
                     },
                 })),
                 temperature: this.config.temperature,
@@ -209,32 +230,59 @@ ${JSON.stringify(context.environment, null, 2)}
                 stream: true,
             });
 
+            // 重置工具调用处理器
+            this.toolCallProcessor.reset();
+            
             for await (const chunk of stream) {
                 const delta = chunk.choices[0]?.delta;
                 if (!delta) continue;
 
                 if (delta.content) {
+                    const textContent = delta.content;
+                    
+                    // 使用 onAddChunk 回调而不是直接更新 PartsTracker
+                    if (onAddChunk) {
+                        onAddChunk({ type: 'text', text: textContent });
+                    }
+                    
                     yield {
                         type: 'text',
-                        content: delta.content,
+                        content: textContent,
                     };
                 }
 
                 if (delta.tool_calls) {
-                    for (const toolCall of delta.tool_calls) {
-                        if (toolCall.function?.arguments) {
+                    for (let i = 0; i < delta.tool_calls.length; i++) {
+                        const toolCallDelta: OpenAI.ChatCompletionChunk.Choice.Delta.ToolCall =
+                            delta.tool_calls[i];
+                        // 使用工具调用处理器处理增量
+                        const processedToolCall = this.toolCallProcessor.processToolCallDelta(
+                            i,
+                            toolCallDelta
+                        );
+
+                        // 如果工具调用处理完成，则生成工具调用事件
+                        if (processedToolCall) {
+                            this.logger.debug('生成工具调用:', {
+                                toolCall: processedToolCall,
+                                index: i,
+                                toolCallDelta: toolCallDelta,
+                            });
+                            
+                            // 使用 onAddChunk 回调而不是直接更新 PartsTracker
+                            if (onAddChunk) {
+                                onAddChunk({ type: 'tool_call', toolCall: processedToolCall });
+                            }
+                            
                             yield {
                                 type: 'tool_call',
-                                content: {
-                                    toolId: toolCall.id || '',
-                                    parameters: JSON.parse(toolCall.function.arguments),
-                                    timestamp: Date.now(),
-                                },
+                                content: processedToolCall,
                             };
                         }
                     }
                 }
             }
+            
         } catch (error) {
             this.logger.error('流式工具调用失败:', error);
             yield {

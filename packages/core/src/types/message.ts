@@ -1,4 +1,4 @@
-import { ToolCall } from './index';
+import { ToolCall } from "./tool-call";
 
 /**
  * 消息角色类型

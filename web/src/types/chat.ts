@@ -1,27 +1,8 @@
-export interface Message {
-  id: string;
-  content: string;
-  isAgent: boolean;
-  timestamp: Date;
-  status?: 'sending' | 'sent' | 'error';
-  error?: string;
-}
+import { Goal, Memory } from "@agentkai/core";
+import { Message } from "./message";
 
-export interface Memory {
-  id: string;
-  content: string;
-  category?: string;
-  importance?: number;
-  timestamp: number;
-  tags?: string[];
-}
 
-export interface Goal {
-  id: string;
-  description: string;
-  progress: number;
-  timestamp: number;
-}
+
 
 export interface ChatState {
   messages: Message[];
