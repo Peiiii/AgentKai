@@ -131,8 +131,9 @@ export class AgentAPI {
         onToolResult?: (toolResult: ToolResult<string, Record<string, any>, any>) => void;
         onPartsChange?: (parts: MessagePart[]) => void;
         onPartEvent?: (event: PartsTrackerEvent) => void;
+        maxIterations?: number;
     }): Promise<void> {
-        const { content, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent } = params;
+        const { content, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent, maxIterations } = params;
         await this.ensureInitialized();
 
         try {
@@ -143,9 +144,12 @@ export class AgentAPI {
                 tools,
                 onChunk,
                 onToolCall,
-                onToolResult,
+                onToolResult: (toolResult) => {
+                    onToolResult?.(toolResult);
+                },
                 onPartsChange,
                 onPartEvent,
+                maxIterations,
             });
         } catch (error) {
             console.error('Stream processing error:', error);

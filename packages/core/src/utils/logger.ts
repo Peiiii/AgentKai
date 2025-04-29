@@ -83,6 +83,7 @@ export class Logger {
    * 设置全局日志级别
    */
   static setGlobalLogLevel(level: LogLevel | string): void {
+    return
     if (typeof level === 'string') {
       switch (level.toLowerCase()) {
         case 'debug':

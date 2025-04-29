@@ -415,27 +415,129 @@ export class BaseAISystem {
         onToolResult?: (toolResult: ToolResult<string, Record<string, any>, any>) => void;
         onPartsChange?: (parts: MessagePart[]) => void;
         onPartEvent?: (event: PartsTrackerEvent) => void;
+        maxIterations?: number; // 新增：最大循环次数
     }): Promise<string> {
-        const { input, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent } = params;
+        // 循环控制逻辑
+        let currentInput = params.input;
+        let iterations = 0;
+        const maxIterations = params.maxIterations || 10; // 默认不循环，向后兼容
+        let fullResponse = '';
+        
+        // 记录处理开始时间
         const startTime = Date.now();
-        console.log('[AISystem] [processInputStreamWithTools] [input]:', input, 'tools:', tools);
+        
+        try {
+            while (iterations < maxIterations) {
+                this.logger.debug(`开始处理第 ${iterations + 1}/${maxIterations} 轮对话`, {
+                    iteration: iterations + 1,
+                    input: currentInput.substring(0, 100) + (currentInput.length > 100 ? '...' : ''),
+                    timestamp: new Date().toISOString()
+                });
+                
+                // 处理单轮对话
+                const result = await this.processSingleIteration({
+                    ...params,
+                    input: currentInput,
+                    iterationIndex: iterations
+                });
+                
+                // 累加响应
+                if (iterations > 0) {
+                    fullResponse += '\n\n' + result.response;
+                } else {
+                    fullResponse = result.response;
+                }
+                
+                // 判断是否需要继续循环
+                if (!result.requiresFollowUp) {
+                    this.logger.debug('对话完成，不需要继续循环', {
+                        iterations: iterations + 1,
+                        totalTime: Date.now() - startTime
+                    });
+                    break;
+                }
+                
+                // 准备下一轮输入
+                if (result.nextPrompt) {
+                    currentInput = result.nextPrompt;
+                    this.logger.debug('准备下一轮输入', {
+                        nextPromptLength: currentInput.length,
+                        nextPromptPreview: currentInput.substring(0, 50) + '...'
+                    });
+                } else {
+                    this.logger.warn('需要继续循环但未提供下一轮输入，使用默认提示');
+                    currentInput = this.buildDefaultNextPrompt(result.lastToolResult);
+                }
+                
+                iterations++;
+            }
+            
+            // 如果达到最大循环次数但仍需继续
+            if (iterations >= maxIterations && iterations > 0) {
+                this.logger.warn(`达到最大循环次数 ${maxIterations}，强制结束对话`);
+            }
+            
+            return fullResponse;
+        } catch (error) {
+            const errorDuration = Date.now() - startTime;
+            this.logger.error('处理流式输入失败', {
+                error,
+                duration: errorDuration,
+                iterations,
+                timestamp: new Date().toISOString(),
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * 处理单轮对话
+     * @private
+     */
+    private async processSingleIteration(params: {
+        input: string;
+        tools: Tool[];
+        onChunk?: (chunk: string) => void;
+        onToolCall?: (toolCall: ToolCall) => void;
+        onToolResult?: (toolResult: ToolResult<string, Record<string, any>, any>) => void;
+        onPartsChange?: (parts: MessagePart[]) => void;
+        onPartEvent?: (event: PartsTrackerEvent) => void;
+        iterationIndex: number;
+    }): Promise<{
+        response: string;
+        requiresFollowUp: boolean;
+        nextPrompt?: string;
+        lastToolResult?: ToolResult<string, Record<string, any>, any>;
+    }> {
+        const { input, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent, iterationIndex } = params;
+        const startTime = Date.now();
+        let requiresFollowUp = false;
+        let nextPrompt: string | undefined;
+        let lastToolResult: ToolResult<string, Record<string, any>, any> | undefined;
+        
+        console.log('[AISystem] [processSingleIteration] [input]:', input, 'tools:', tools, 'iteration:', iterationIndex);
+        
         try {
             // 记录输入和工具信息
             this.logger.debug('开始处理带工具的流式输入', {
                 timestamp: new Date().toISOString(),
+                iteration: iterationIndex,
                 input,
                 availableTools: tools.map((t) => ({
                     name: t.name,
                     description: t.description,
-                    parameters: t.parameters,
                 })),
             });
 
             const messages = this.conversation.getHistory();
-            this.logger.debug('当前对话历史', {
-                messageCount: messages.length,
-                lastMessage: messages[messages.length - 1],
-            });
+            
+            // 对于后续迭代，直接添加一条系统消息让AI继续处理
+            if (iterationIndex > 0) {
+                messages.push({
+                    role: 'system',
+                    content: '请继续处理上述工具调用的结果，必要时使用工具完成任务。'
+                });
+            }
 
             // 重置工具调用处理器
             this.toolCallProcessor.reset();
@@ -453,8 +555,8 @@ export class BaseAISystem {
             
             // 创建 onAddChunk 回调函数，将其传递给模型
             const handleAddChunk = (chunk: MessageChunk) => {
-                console.log('[AISystem] [processInputStreamWithTools] [handleAddChunk]:', chunk);
-               partsTracker.addChunk(chunk);
+                console.log('[AISystem] [processSingleIteration] [handleAddChunk]:', chunk);
+                partsTracker.addChunk(chunk);
             };
 
             const response = await this.model.generateStreamWithTools({
@@ -466,14 +568,13 @@ export class BaseAISystem {
             });
 
             let fullResponse = '';
-            let currentToolCall: ToolCall | null = null;
-            let currentToolName = '';
             let chunkCount = 0;
             let toolCallCount = 0;
 
             for await (const chunk of response) {
                 chunkCount++;
-                console.log('[BaseAISystem] [processInputStreamWithTools] [chunk]:', chunk);
+                console.log('[BaseAISystem] [processSingleIteration] [chunk]:', chunk);
+                
                 // 记录每个chunk的原始内容和处理时间
                 this.logger.debug('收到OpenAI流式响应chunk', {
                     chunkNumber: chunkCount,
@@ -487,58 +588,27 @@ export class BaseAISystem {
                     onChunk?.(chunk.content as string);
                 } else if (chunk.type === 'tool_call') {
                     const toolCall = chunk.content as ToolCall;
-                    currentToolCall = toolCall;
-                    currentToolName = toolCall.function.name;
                     toolCallCount++;
 
-                    this.logger.debug('开始新的工具调用', {
-                        toolCallNumber: toolCallCount,
-                        toolName: currentToolName,
-                        timestamp: new Date().toISOString(),
-                    });
-
-                    onToolCall?.(currentToolCall);
-
+                    onToolCall?.(toolCall);
+                    
                     // 执行工具调用
-                    const tool = tools.find((t) => t.name === currentToolName);
-                    if (tool) {
-                        const toolStartTime = Date.now();
-                        try {
-                            const result = await tool.handler(toolCall.function.arguments);
-                            const toolResult: ToolResult<string, Record<string, any>, any> = {
-                                toolCallId: currentToolCall.id,
-                                toolName: currentToolName,
-                                args: JSON.parse(toolCall.function.arguments),
-                                result: result,
-                            };
-                            console.log('[AISystem] [processInputStreamWithTools] [toolResult]:', toolResult);
-                            this.logger.debug('工具执行结果', {
-                                toolResult,
-                                executionTime: Date.now() - toolStartTime,
-                                timestamp: new Date().toISOString(),
-                            });
-                            onToolResult?.(toolResult);
-                            partsTracker.addChunk({ type: 'tool_result', toolResult });
-
-                        } catch (error) {
-                            const toolResult: ToolResult<string, Record<string, any>, any> = {
-                                toolCallId: currentToolCall.id,
-                                toolName: currentToolName,
-                                args: JSON.parse(toolCall.function.arguments),
-                                result: error instanceof Error ? error.message : 'Unknown error',
-                            };
-                            this.logger.error('工具执行失败', {
-                                error,
-                                toolResult,
-                                executionTime: Date.now() - toolStartTime,
-                                timestamp: new Date().toISOString(),
-                            });
-                            partsTracker.addChunk({ type: 'tool_result', toolResult });
-                            onToolResult?.(toolResult);
-                        }
+                    const toolResult = await this.executeToolCall(toolCall, tools);
+                    
+                    // 触发工具结果回调
+                    onToolResult?.(toolResult);
+                    
+                    // 添加工具结果到PartsTracker
+                    partsTracker.addChunk({ type: 'tool_result', toolResult });
+                    
+                    // 记录最后一个工具结果，用于决定是否需要继续对话
+                    lastToolResult = toolResult;
+                    
+                    // 检查是否需要继续对话
+                    if (this.shouldContinueProcessing(toolResult)) {
+                        requiresFollowUp = true;
+                        nextPrompt = this.buildNextPrompt(toolResult);
                     }
-                    currentToolCall = null;
-                    currentToolName = '';
                 } else if (chunk.type === 'error') {
                     this.logger.error('流式处理错误', {
                         error: chunk.content,
@@ -552,26 +622,161 @@ export class BaseAISystem {
 
             // 记录完整响应和处理统计
             const totalDuration = Date.now() - startTime;
-            this.logger.debug('流式处理完成', {
+            this.logger.debug('单轮流式处理完成', {
+                iteration: iterationIndex,
                 fullResponse,
+                requiresFollowUp,
                 statistics: {
                     totalDuration,
                     chunkCount,
                     toolCallCount,
-                    averageChunkTime: totalDuration / chunkCount,
+                    averageChunkTime: chunkCount > 0 ? totalDuration / chunkCount : 0,
                     timestamp: new Date().toISOString(),
                 },
             });
 
-            return fullResponse;
+            return {
+                response: fullResponse,
+                requiresFollowUp,
+                nextPrompt,
+                lastToolResult
+            };
         } catch (error) {
             const errorDuration = Date.now() - startTime;
-            this.logger.error('处理流式输入失败', {
+            this.logger.error('处理单轮流式输入失败', {
                 error,
+                iteration: iterationIndex,
                 duration: errorDuration,
                 timestamp: new Date().toISOString(),
             });
             throw error;
+        }
+    }
+
+    /**
+     * 执行工具调用
+     * @private
+     */
+    private async executeToolCall(
+        toolCall: ToolCall, 
+        tools: Tool[]
+    ): Promise<ToolResult<string, Record<string, any>, any>> {
+        const toolName = toolCall.function.name;
+        const tool = tools.find((t) => t.name === toolName);
+        
+        this.logger.debug('开始工具调用', {
+            toolName,
+            toolCallId: toolCall.id,
+            arguments: toolCall.function.arguments.substring(0, 100) + 
+                (toolCall.function.arguments.length > 100 ? '...' : ''),
+            timestamp: new Date().toISOString(),
+        });
+        
+        if (!tool) {
+            return {
+                toolCallId: toolCall.id,
+                toolName,
+                args: this.safeParseJson(toolCall.function.arguments),
+                result: `未找到工具: ${toolName}`,
+            };
+        }
+        
+        const toolStartTime = Date.now();
+        try {
+            const result = await tool.handler(toolCall.function.arguments);
+            const toolResult: ToolResult<string, Record<string, any>, any> = {
+                toolCallId: toolCall.id,
+                toolName,
+                args: this.safeParseJson(toolCall.function.arguments),
+                result,
+            };
+            
+            this.logger.debug('工具执行结果', {
+                toolResult,
+                executionTime: Date.now() - toolStartTime,
+                timestamp: new Date().toISOString(),
+            });
+            
+            return toolResult;
+        } catch (error) {
+            const toolResult: ToolResult<string, Record<string, any>, any> = {
+                toolCallId: toolCall.id,
+                toolName,
+                args: this.safeParseJson(toolCall.function.arguments),
+                result: error instanceof Error ? error.message : 'Unknown error',
+            };
+            
+            this.logger.error('工具执行失败', {
+                error,
+                toolResult,
+                executionTime: Date.now() - toolStartTime,
+                timestamp: new Date().toISOString(),
+            });
+            
+            return toolResult;
+        }
+    }
+    
+    /**
+     * 判断是否需要继续处理
+     * @private
+     */
+    private shouldContinueProcessing(
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        toolResult: ToolResult<string, Record<string, any>, any>
+    ): boolean {
+        // 目前都需要继续处理
+       return true;
+    }
+    
+    /**
+     * 构建下一轮提示
+     * @private
+     */
+    private buildNextPrompt(
+        toolResult: ToolResult<string, Record<string, any>, any>
+    ): string {
+        // 如果工具结果中已经提供了下一轮提示
+        if (typeof toolResult.result === 'object' && 
+            toolResult.result !== null && 
+            'nextPrompt' in toolResult.result &&
+            typeof toolResult.result.nextPrompt === 'string') {
+            return toolResult.result.nextPrompt;
+        }
+        
+        // 根据不同工具类型生成不同的提示
+        return this.buildDefaultNextPrompt(toolResult);
+    }
+    
+    /**
+     * 构建默认的下一轮提示
+     * @private
+     */
+    private buildDefaultNextPrompt(
+        toolResult?: ToolResult<string, Record<string, any>, any>
+    ): string {
+        if (!toolResult) {
+            return '请继续处理之前的任务';
+        }
+        
+        // 基于工具结果构建提示
+        const resultPreview = typeof toolResult.result === 'string' 
+            ? toolResult.result.substring(0, 100) + (toolResult.result.length > 100 ? '...' : '')
+            : JSON.stringify(toolResult.result).substring(0, 100) + '...';
+            
+        return `你使用了工具 "${toolResult.toolName}" 并获得了以下结果: ${resultPreview}\n\n请基于这个结果继续完成用户的请求`;
+    }
+    
+    /**
+     * 安全解析JSON
+     * @private
+     */
+    private safeParseJson(jsonString: string): Record<string, any> {
+        try {
+            return JSON.parse(jsonString);
+        } catch (e) {
+            this.logger.warn('解析JSON失败', { jsonString: jsonString.substring(0, 100) });
+            return {};
         }
     }
 }
