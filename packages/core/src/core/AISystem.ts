@@ -195,7 +195,7 @@ export class BaseAISystem {
             this.performance.start('generateResponse');
 
             // 添加用户输入到对话历史
-            this.conversation.addMessage({
+            this.conversation.addMessages({
                 role: 'user',
                 content: input,
             });
@@ -253,7 +253,7 @@ export class BaseAISystem {
             this.performance.end('generateResponse');
 
             // 添加AI回复到对话历史（使用处理后的输出）
-            this.conversation.addMessage({
+            this.conversation.addMessages({
                 role: 'assistant',
                 content: finalOutput,
             });
@@ -390,7 +390,7 @@ export class BaseAISystem {
                     );
 
                     // 更新对话历史
-                    await this.conversation.addMessage({
+                    await this.conversation.addMessages({
                         role: 'assistant',
                         content: processedResponse.output || '',
                     });
@@ -496,7 +496,7 @@ export class BaseAISystem {
                 this.logger.warn(`达到最大循环次数 ${maxIterations}，强制结束对话`);
                 
                 // 可以选择添加一条系统消息说明达到了最大迭代次数
-                this.conversation.addMessage({
+                this.conversation.addMessages({
                     role: 'system',
                     content: `注意：该对话已达到最大迭代次数(${maxIterations})限制，可能未完全处理完所有工具调用结果。`
                 });
@@ -627,7 +627,7 @@ export class BaseAISystem {
                 
                 // 同时将用户输入添加到对话历史中
                 if (iterationIndex === 0) {
-                    this.conversation.addMessage({
+                    this.conversation.addMessages({
                         role: 'user',
                         content: input
                     });
@@ -677,6 +677,10 @@ export class BaseAISystem {
                     
                     // 触发工具结果回调
                     onToolResult?.(toolResult);
+
+                    this.logger.debug("工具调用结果", {
+                        toolResult
+                    })
                     
                     // 添加工具结果到PartsTracker
                     partsTracker.addChunk({ type: 'tool_result', toolResult });
@@ -718,58 +722,60 @@ export class BaseAISystem {
 
             // 将当前迭代的内容存储到对话历史中
             // 收集当前迭代生成的消息部分
-            let assistantMessage = '';
-            const toolCalls: any[] = [];
-            const toolResults: Map<string, any> = new Map();
+            // let assistantMessage = '';
+            // const toolCalls: any[] = [];
+            // const toolResults: Map<string, any> = new Map();
             
-            // 处理生成的部分
-            partsTracker.getParts().forEach(part => {
-                if (part.type === 'text') {
-                    assistantMessage += part.text;
-                } else if (part.type === 'tool_call') {
-                    toolCalls.push({
-                        id: part.toolCall.id,
-                        type: 'function',
-                        function: {
-                            name: part.toolCall.function.name,
-                            arguments: part.toolCall.function.arguments
-                        }
-                    });
-                } else if (part.type === 'tool_result') {
-                    toolResults.set(part.toolResult.toolCallId, part.toolResult.result);
-                }
-            });
+            // // 处理生成的部分
+            // partsTracker.getParts().forEach(part => {
+            //     if (part.type === 'text') {
+            //         assistantMessage += part.text;
+            //     } else if (part.type === 'tool_call') {
+            //         toolCalls.push({
+            //             id: part.toolCall.id,
+            //             type: 'function',
+            //             function: {
+            //                 name: part.toolCall.function.name,
+            //                 arguments: part.toolCall.function.arguments
+            //             }
+            //         });
+            //     } else if (part.type === 'tool_result') {
+            //         toolResults.set(part.toolResult.toolCallId, part.toolResult.result);
+            //     }
+            // });
             
-            // 添加助手消息（文本或工具调用）
-            if (assistantMessage || toolCalls.length > 0) {
-                this.conversation.addMessage({
-                    role: 'assistant',
-                    content: assistantMessage,
-                    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
-                });
+            // // 添加助手消息（文本或工具调用）
+            // if (assistantMessage || toolCalls.length > 0) {
+            //     this.conversation.addMessage({
+            //         role: 'assistant',
+            //         content: assistantMessage,
+            //         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
+            //     });
                 
-                this.logger.debug('添加助手消息到对话历史', {
-                    hasText: !!assistantMessage,
-                    textLength: assistantMessage.length,
-                    toolCallsCount: toolCalls.length
-                });
-            }
+            //     this.logger.debug('添加助手消息到对话历史', {
+            //         hasText: !!assistantMessage,
+            //         textLength: assistantMessage.length,
+            //         toolCallsCount: toolCalls.length
+            //     });
+            // }
             
-            // 添加工具结果消息
-            toolResults.forEach((result, toolCallId) => {
-                const content = typeof result === 'string' ? result : JSON.stringify(result);
-                this.conversation.addMessage({
-                    role: 'tool',
-                    content,
-                    tool_call_id: toolCallId
-                });
+            // // 添加工具结果消息
+            // toolResults.forEach((result, toolCallId) => {
+            //     const content = typeof result === 'string' ? result : JSON.stringify(result);
+            //     this.conversation.addMessage({
+            //         role: 'tool',
+            //         content,
+            //         tool_call_id: toolCallId
+            //     });
                 
-                this.logger.debug('添加工具结果消息到对话历史', {
-                    toolCallId,
-                    contentLength: content.length
-                });
-            });
+            //     this.logger.debug('添加工具结果消息到对话历史', {
+            //         toolCallId,
+            //         contentLength: content.length
+            //     });
+            // });
 
+
+            this.conversation.addMessages(...partsTracker.getConversationMessages());
             return {
                 response: fullResponse,
                 requiresFollowUp,

@@ -3,6 +3,7 @@ import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { ToolCall } from '../../types/tool-call';
 import { ToolResult } from '../../types/ui-message';
 import { Logger } from '../../utils/logger';
+import { ConversationMessage } from '../conversation';
 
 /**
  * 消息部分类型
@@ -10,7 +11,12 @@ import { Logger } from '../../utils/logger';
 export type MessagePart =
     | { type: 'text'; text: string; isComplete?: boolean; messageGroupId: string }
     | { type: 'tool_call'; toolCall: ToolCall; isComplete?: boolean; messageGroupId: string }
-    | { type: 'tool_result'; toolResult: ToolResult<string, any, any>; isComplete?: boolean; messageGroupId: string };
+    | {
+          type: 'tool_result';
+          toolResult: ToolResult<string, any, any>;
+          isComplete?: boolean;
+          messageGroupId: string;
+      };
 
 /**
  * Chunk类型
@@ -30,7 +36,7 @@ export enum PartsTrackerEventType {
 /**
  * 事件类型
  */
-export type PartsTrackerEvent = 
+export type PartsTrackerEvent =
     | { type: PartsTrackerEventType.PART_ADDED; part: MessagePart }
     | { type: PartsTrackerEventType.PART_UPDATED; part: MessagePart; index: number }
     | { type: PartsTrackerEventType.PART_COMPLETED; part: MessagePart; index: number }
@@ -70,10 +76,10 @@ export class PartsTracker {
         if (lastPart?.type === chunk.type) {
             const updatedPart = this.mergePart(lastPart, chunk);
             this.mergeParts(currentParts, updatedPart);
-            this.eventSubject.next({ 
-                type: PartsTrackerEventType.PART_UPDATED, 
-                part: updatedPart, 
-                index: currentParts.length - 1 
+            this.eventSubject.next({
+                type: PartsTrackerEventType.PART_UPDATED,
+                part: updatedPart,
+                index: currentParts.length - 1,
             });
         } else {
             // 如果最后一个part存在且未完成，先将其标记为完成
@@ -83,18 +89,18 @@ export class PartsTracker {
                     isComplete: true,
                 };
                 this.mergeParts(currentParts, completedPart);
-                this.eventSubject.next({ 
-                    type: PartsTrackerEventType.PART_COMPLETED, 
-                    part: completedPart, 
-                    index: currentParts.length - 1 
+                this.eventSubject.next({
+                    type: PartsTrackerEventType.PART_COMPLETED,
+                    part: completedPart,
+                    index: currentParts.length - 1,
                 });
             }
             // 添加新的part
             const newPart = this.createPart(chunk);
             this.addPart(newPart);
-            this.eventSubject.next({ 
-                type: PartsTrackerEventType.PART_ADDED, 
-                part: newPart 
+            this.eventSubject.next({
+                type: PartsTrackerEventType.PART_ADDED,
+                part: newPart,
             });
         }
     }
@@ -112,10 +118,10 @@ export class PartsTracker {
                 isComplete: true,
             };
             this.mergeParts(currentParts, completedPart);
-            this.eventSubject.next({ 
-                type: PartsTrackerEventType.PART_COMPLETED, 
-                part: completedPart, 
-                index: currentParts.length - 1 
+            this.eventSubject.next({
+                type: PartsTrackerEventType.PART_COMPLETED,
+                part: completedPart,
+                index: currentParts.length - 1,
             });
         }
     }
@@ -125,6 +131,89 @@ export class PartsTracker {
      */
     public getParts(): MessagePart[] {
         return this.partsSubject.value;
+    }
+
+    /**
+     * 获取conversation messages, 每个 part 映射成一个message
+     */
+    public getConversationMessages(): ConversationMessage[] {
+        // let assistantMessage = '';
+        // const toolCalls: any[] = [];
+        // const toolResults: Map<string, any> = new Map();
+
+        // // 处理生成的部分
+        // this.getParts().forEach((part) => {
+        //     if (part.type === 'text') {
+        //         assistantMessage += part.text;
+        //     } else if (part.type === 'tool_call') {
+        //         toolCalls.push({
+        //             id: part.toolCall.id,
+        //             type: 'function',
+        //             function: {
+        //                 name: part.toolCall.function.name,
+        //                 arguments: part.toolCall.function.arguments,
+        //             },
+        //         });
+        //     } else if (part.type === 'tool_result') {
+        //         toolResults.set(part.toolResult.toolCallId, part.toolResult.result);
+        //     }
+        // });
+
+        // const messages: ConversationMessage[] = [];
+
+        // // 添加助手消息（文本或工具调用）
+        // if (assistantMessage || toolCalls.length > 0) {
+        //     messages.push({
+        //         role: 'assistant',
+        //         content: assistantMessage,
+        //         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+        //     });
+
+        //     this.logger.debug('添加助手消息到对话历史', {
+        //         hasText: !!assistantMessage,
+        //         textLength: assistantMessage.length,
+        //         toolCallsCount: toolCalls.length,
+        //     });
+        // }
+
+        // // 添加工具结果消息
+        // toolResults.forEach((result, toolCallId) => {
+        //     const content = typeof result === 'string' ? result : JSON.stringify(result);
+        //     messages.push({
+        //         role: 'tool',
+        //         content,
+        //         tool_call_id: toolCallId,
+        //     });
+
+        //     this.logger.debug('添加工具结果消息到对话历史', {
+        //         toolCallId,
+        //         contentLength: content.length,
+        //     });
+        // });
+        const messages: ConversationMessage[] = this.getParts().map(
+            (part): ConversationMessage | undefined => {
+                if (part.type === 'text') {
+                    return {
+                        role: 'assistant',
+                        content: part.text,
+                    };
+                } else if (part.type === 'tool_call') {
+                    return {
+                        role: 'assistant',
+                        content: '',
+                        tool_calls: [part.toolCall],
+                    };
+                } else if (part.type === 'tool_result') {
+                    return {
+                        role: 'tool',
+                        content: JSON.stringify(part.toolResult.result),
+                        tool_call_id: part.toolResult.toolCallId,
+                    };
+                }
+            }
+        ).filter(Boolean) as ConversationMessage[];
+
+        return messages;
     }
 
     /**
@@ -170,11 +259,25 @@ export class PartsTracker {
     private createPart(chunk: MessageChunk): MessagePart {
         switch (chunk.type) {
             case 'text':
-                return { type: 'text', text: chunk.text, isComplete: false, messageGroupId: this.messageGroupId };
+                return {
+                    type: 'text',
+                    text: chunk.text,
+                    isComplete: false,
+                    messageGroupId: this.messageGroupId,
+                };
             case 'tool_call':
-                return { type: 'tool_call', toolCall: chunk.toolCall, isComplete: false, messageGroupId: this.messageGroupId };
+                return {
+                    type: 'tool_call',
+                    toolCall: chunk.toolCall,
+                    isComplete: false,
+                    messageGroupId: this.messageGroupId,
+                };
             case 'tool_result':
-                return { type: 'tool_result', toolResult: chunk.toolResult, messageGroupId: this.messageGroupId };
+                return {
+                    type: 'tool_result',
+                    toolResult: chunk.toolResult,
+                    messageGroupId: this.messageGroupId,
+                };
         }
     }
 

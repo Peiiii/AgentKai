@@ -28,13 +28,20 @@ export class ConversationManager {
         this.logger.info(`初始化会话管理器，最大历史长度: ${maxHistoryLength}`);
     }
 
-    addMessage(message: ConversationMessage): void {
-        this.history.push(message);
+    addMessages(...messages: ConversationMessage[]): void {
+        this.history.push(...messages);
 
         // 如果超过最大长度，裁剪历史记录
         if (this.history.length > this.maxHistoryLength) {
             this.history = this.history.slice(-this.maxHistoryLength);
             this.logger.debug(`历史记录超出最大长度，已裁剪至${this.maxHistoryLength}条`);
+            
+            // 检查裁剪后的第一条消息是否为tool角色，如果是则移除
+            // 因为tool消息必须跟在有tool_calls的消息后面
+            if (this.history.length > 0 && this.history[0].role === 'tool') {
+                this.history.shift();
+                this.logger.debug('移除了第一条tool角色消息，因为它缺少前置的tool_calls消息');
+            }
         }
     }
 
@@ -91,6 +98,13 @@ export class ConversationManager {
         // 如果当前历史长度超过新设置的最大长度，裁剪历史记录
         if (this.history.length > this.maxHistoryLength) {
             this.history = this.history.slice(-this.maxHistoryLength);
+            
+            // 检查裁剪后的第一条消息是否为tool角色，如果是则移除
+            if (this.history.length > 0 && this.history[0].role === 'tool') {
+                this.history.shift();
+                this.logger.debug('移除了第一条tool角色消息，因为它缺少前置的tool_calls消息');
+            }
+            
             this.logger.info(`最大历史长度已更新为${length}，历史记录已裁剪`);
         } else {
             this.logger.info(`最大历史长度已更新为${length}`);

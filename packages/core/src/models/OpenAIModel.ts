@@ -213,6 +213,11 @@ ${JSON.stringify(context.environment, null, 2)}
                 tools, 
                 onAddChunk  // 新增参数：onAddChunk 回调函数
             } = params;
+
+            this.logger.debug("唤起AI", {
+                messages,
+                tools,
+            })
             
             const stream = await this.client.chat.completions.create({
                 model: this.config.model,
