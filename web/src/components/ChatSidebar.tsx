@@ -14,8 +14,8 @@ interface ChatSidebarProps {
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({ memories, goals, collapsed, onCollapse }) => {
   const renderMemoryItem = (memory: Memory) => {
-    const category = memory.metadata.category as string | undefined;
-    const importance = memory.metadata.importance as number | undefined;
+    const category = memory.metadata?.category as string | undefined;
+    const importance = memory.metadata?.importance as number | undefined;
 
     return (
       <List.Item>

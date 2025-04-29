@@ -1,7 +1,7 @@
+import { Memory } from '@agentkai/core';
 import { DeleteOutlined, EyeOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import { Button, Card, Modal, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
-import { Memory } from '../types/chat';
 
 const { Paragraph, Text } = Typography;
 
@@ -79,11 +79,11 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
   
   // 渲染标签
   const renderTags = () => {
-    if (!memory.tags || memory.tags.length === 0) return null;
+    if (!memory.metadata?.tags || memory.metadata?.tags.length === 0) return null;
     
     return (
       <div className="mt-2">
-        {memory.tags.map(tag => (
+        {memory.metadata?.tags?.map((tag: string) => (
           <Tag key={tag} color="blue" className="mr-1 mb-1">{tag}</Tag>
         ))}
       </div>
@@ -106,14 +106,14 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
         ]}
       >
         <div>
-          {memory.category && (
-            <Tag color="green" className="mb-2">{memory.category}</Tag>
+          {memory.metadata?.category && (
+            <Tag color="green" className="mb-2">{memory.metadata?.category}</Tag>
           )}
           <Paragraph ellipsis={{ rows: 2 }}>
             {memory.content}
           </Paragraph>
           <div className="flex justify-between items-center text-xs text-gray-500 mt-1">
-            <Text type="secondary">{formatDate(memory.timestamp)}</Text>
+            <Text type="secondary">{formatDate(memory.metadata?.timestamp || 0)}</Text>
           </div>
           {renderTags()}
         </div>
@@ -131,8 +131,8 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
         ]}
       >
         <div className="mb-4">
-          {memory.category && (
-            <Tag color="green" className="mb-2">{memory.category}</Tag>
+          {memory.metadata?.category && (
+            <Tag color="green" className="mb-2">{memory.metadata?.category}</Tag>
           )}
           {renderTags()}
         </div>
@@ -140,7 +140,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
           {memory.content}
         </Paragraph>
         <div className="mt-4 text-gray-500">
-          <Text type="secondary">创建时间: {formatDate(memory.timestamp)}</Text>
+          <Text type="secondary">创建时间: {formatDate(memory.createdAt)}</Text>
         </div>
       </Modal>
     </>
