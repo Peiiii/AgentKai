@@ -52,7 +52,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ memories, goals, colla
           size="small" 
           className="mb-4"
           extra={
-            <a href="/memories" className="text-xs">查看全部</a>
+            <a href="/#/memories" className="text-xs">查看全部</a>
           }
         >
           <List

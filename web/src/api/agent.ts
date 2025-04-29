@@ -11,6 +11,13 @@ import {
     ToolResult,
 } from '@agentkai/core';
 
+// 扩展Window全局类型
+declare global {
+    interface Window {
+        aiSystem: AISystem;
+    }
+}
+
 /**
  * 数据访问层 - 封装对AISystem的直接访问
  */
@@ -59,7 +66,7 @@ export class AgentAPI {
         // 创建AISystem实例，带配置和模型
         this.aiSystem = new AISystem(config, model, [], this.toolCallProcessor);
         this.aiSystem.pluginManager.addPlugin(new MemoryPlugin(this.aiSystem.memory));
-        (window as any).aiSystem = this.aiSystem;
+        window.aiSystem = this.aiSystem;
     }
 
     public static getInstance(): AgentAPI {

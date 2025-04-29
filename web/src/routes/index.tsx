@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Layout, Menu } from 'antd';
 import { 
   MessageOutlined, 
@@ -18,6 +18,7 @@ const { Sider, Content } = Layout;
  */
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = React.useState(false);
+  const navigate = useNavigate();
 
   const menuItems = [
     {
@@ -61,7 +62,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           mode="inline"
           items={menuItems}
           onClick={({ key }) => {
-            window.location.href = key;
+            navigate(key);
           }}
         />
       </Sider>
@@ -80,7 +81,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
  */
 export const AppRoutes: React.FC = () => {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={
           <MainLayout>
@@ -104,6 +105,6 @@ export const AppRoutes: React.FC = () => {
         } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }; 
