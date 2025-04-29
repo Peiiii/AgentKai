@@ -10,7 +10,8 @@
     "lint": "eslint . --ext ts,tsx",
     "preview": "vite preview",
     "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "deploy:cdn": "pnpm build && ossutil64 cp -r -u dist oss://agentkai -c ../.ossutilconfig.local"
   },
   "repository": {
     "type": "git",
