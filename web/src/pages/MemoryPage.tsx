@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
 import { Layout, Typography } from 'antd';
+import React from 'react';
 import { MemoryList } from '../components/MemoryList';
-import { useChatStore } from '../store/chatStore';
 
 const { Content } = Layout;
 const { Title } = Typography;
@@ -12,12 +11,6 @@ const { Title } = Typography;
  * 使用与ChatSidebar相同的数据源
  */
 export const MemoryPage: React.FC = () => {
-  const { memories, loadMemories } = useChatStore();
-  
-  useEffect(() => {
-    // 确保页面加载时获取最新的记忆数据
-    loadMemories();
-  }, [loadMemories]);
   
   return (
     <Layout style={{ height: '100%' }}>
@@ -31,7 +24,7 @@ export const MemoryPage: React.FC = () => {
           borderRadius: '8px',
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.09)'
         }}>
-          <MemoryList initialMemories={memories} />
+          <MemoryList />
         </div>
       </Content>
     </Layout>

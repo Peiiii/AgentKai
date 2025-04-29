@@ -1,8 +1,7 @@
 // 消息接口
 // 导入浏览器平台服务
 import browserPlatform from '@agentkai/browser';
-import { Goal, GoalStatus, Memory, MemoryType } from '@agentkai/core';
-import { MemoryStorage } from './MemoryStorage';
+import { Goal, GoalStatus, Message } from '@agentkai/core';
 import { MessageStorage } from './MessageStorage';
 
 /**
@@ -16,12 +15,10 @@ export class AgentService {
     // 添加消息存储
     private messageStorage: MessageStorage;
     // 添加记忆存储
-    private memoryStorage: MemoryStorage;
 
     private constructor() {
         // 私有构造函数，使用单例模式
         this.messageStorage = MessageStorage.getInstance();
-        this.memoryStorage = MemoryStorage.getInstance();
     }
 
     /**
@@ -55,9 +52,6 @@ export class AgentService {
             // 初始化消息存储
             await this.messageStorage.initialize();
 
-            // 初始化记忆存储
-            await this.memoryStorage.initialize();
-
             this.initialized = true;
             console.log('AgentService initialized successfully');
         } catch (error) {
@@ -66,101 +60,8 @@ export class AgentService {
         }
     }
 
-    /**
-     * 发送消息给AI并获取回复
-     * @param content 用户消息内容
-     */
-    public async sendMessage(content: string): Promise<Message> {
-        // 创建用户消息
-        const userMessage: Message = {
-            id: `user_${Date.now()}`,
-            content,
-            isAgent: false,
-            timestamp: new Date(),
-        };
 
-        // 保存用户消息
-        await this.messageStorage.saveMessage(userMessage);
 
-        // 目前只是模拟AI响应，稍后会连接到实际的AgentKai AI系统
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // 根据用户输入生成不同的回复
-        let aiResponse = '';
-        if (content.includes('你好') || content.includes('嗨') || content.includes('hi')) {
-            aiResponse = '你好！有什么我可以帮助你的吗？';
-        } else if (content.includes('?') || content.includes('？')) {
-            aiResponse = `关于"${content}"的问题，我需要收集更多信息才能给出准确答案。请提供更多细节。`;
-        } else if (content.toLowerCase().includes('react')) {
-            aiResponse =
-                'React是一个流行的JavaScript库，用于构建用户界面。你想了解React的哪方面知识呢？';
-        } else if (content.includes('谢谢') || content.includes('感谢')) {
-            aiResponse = '不客气！随时为你服务。';
-        } else {
-            aiResponse = `我收到了你的消息: "${content}"。我正在处理这个信息，有什么具体问题我可以帮助解答的吗？`;
-        }
-
-        // 创建AI回复
-        const agentMessage: Message = {
-            id: `agent_${Date.now()}`,
-            content: aiResponse,
-            isAgent: true,
-            timestamp: new Date(),
-        };
-
-        // 保存AI回复
-        await this.messageStorage.saveMessage(agentMessage);
-
-        return agentMessage;
-    }
-
-    /**
-     * 发送消息给AI并获取流式回复
-     * @param content 用户消息内容
-     * @param onChunk 处理每个数据块的回调函数
-     */
-    public async sendMessageStream(
-        content: string,
-        onChunk: (chunk: string) => void
-    ): Promise<void> {
-        // 创建用户消息
-        const userMessage: Message = {
-            id: `user_${Date.now()}`,
-            content,
-            isAgent: false,
-            timestamp: new Date(),
-        };
-
-        // 保存用户消息
-        await this.messageStorage.saveMessage(userMessage);
-
-        try {
-            // 创建AI回复消息
-            const agentMessage: Message = {
-                id: `agent_${Date.now()}`,
-                content: '',
-                isAgent: true,
-                timestamp: new Date(),
-            };
-
-            // 保存初始AI消息
-            await this.messageStorage.saveMessage(agentMessage);
-
-            // 使用流式处理
-            const api = await import('../api/agent').then(m => m.AgentAPI.getInstance());
-            await api.processMessageStream(content, async (chunk) => {
-                // 更新消息内容
-                agentMessage.content += chunk;
-                // 保存更新后的消息
-                await this.messageStorage.saveMessage(agentMessage);
-                // 调用回调函数
-                onChunk(chunk);
-            });
-        } catch (error) {
-            console.error('Stream processing error:', error);
-            throw error;
-        }
-    }
 
     /**
      * 获取消息历史
@@ -170,32 +71,6 @@ export class AgentService {
         return this.messageStorage.getAllMessages();
     }
 
-    /**
-     * 获取记忆列表
-     */
-    public async getMemories(): Promise<Memory[]> {
-        // 从记忆存储中获取记忆
-        return this.memoryStorage.getAllMemories();
-    }
-
-    /**
-     * 添加记忆
-     * @param content 记忆内容
-     * @param category 记忆分类
-     * @param tags 记忆标签
-     * @param importance 重要性
-     */
-    public async addMemory(content: string): Promise<Memory> {
-        const memory: Memory = {
-            id: `memory_${Date.now()}`,
-            content,
-            type: MemoryType.OBSERVATION,
-            createdAt: new Date().getTime(),
-            metadata: {},
-        };
-
-        return this.memoryStorage.saveMemory(memory);
-    }
 
     /**
      * 获取目标列表

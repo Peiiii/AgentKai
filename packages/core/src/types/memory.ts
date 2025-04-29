@@ -31,6 +31,7 @@ export interface Memory {
     id: string;
     content: string;
     type: MemoryType;
+    category?: string;
     createdAt: number;
     importance?: number;
     embedding?: Vector;

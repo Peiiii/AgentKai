@@ -1,5 +1,5 @@
+import { Memory } from '@agentkai/core';
 import { BrowserStorage } from './BrowserStorage';
-import { Memory } from '../components/MemoryCard';
 
 /**
  * 记忆存储服务类
@@ -103,7 +103,7 @@ export class MemoryStorage {
    */
   public async getMemoriesByTag(tag: string): Promise<Memory[]> {
     const allMemories = await this.getAllMemories();
-    return allMemories.filter(memory => memory.tags?.includes(tag));
+    return allMemories.filter(memory => memory.metadata.tags?.includes(tag));
   }
 
   /**

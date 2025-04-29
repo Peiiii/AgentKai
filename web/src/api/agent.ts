@@ -23,7 +23,7 @@ declare global {
  */
 export class AgentAPI {
     private static instance: AgentAPI | null = null;
-    private aiSystem: AISystem;
+    public aiSystem: AISystem;
     private initialized = false;
     private toolCallProcessor: DefaultToolCallProcessor;
 
@@ -246,6 +246,23 @@ export class AgentAPI {
         } catch (error) {
             console.error('Failed to get goals:', error);
             return [];
+        }
+    }
+
+    /**
+     * 添加记忆到AI系统
+     * @param memory 要添加的记忆对象
+     * @returns 添加成功的记忆
+     */
+    public async addMemory(memory: Memory): Promise<Memory> {
+        await this.ensureInitialized();
+        
+        try {
+            // 使用正确的AISystem.addMemory方法
+            return await this.aiSystem.addMemory(memory.content, memory.metadata);
+        } catch (error) {
+            console.error('Failed to add memory to AISystem:', error);
+            throw error;
         }
     }
 

@@ -75,10 +75,24 @@ export const MemoryList: React.FC<MemoryListProps> = ({ initialMemories }) => {
         type: MemoryType.OBSERVATION,
         metadata: {
           source: 'user',
+          category: values.category,
+          tags: values.tags ? values.tags.split(',').map((tag: string) => tag.trim()) : [],
+          importance: Number(values.importance || 0)
         },
       };
       
+      // 添加到本地存储
       await addMemory(newMemory);
+      
+      // 同步添加到AISystem
+      try {
+        const api = await import('../api/agent').then((m) => m.AgentAPI.getInstance());
+        await api.addMemory(newMemory);
+        console.log('Memory successfully added to AISystem:', newMemory);
+      } catch (aiError) {
+        console.error('Failed to add memory to AISystem:', aiError);
+      }
+      
       form.resetFields();
       setIsAddModalVisible(false);
     } catch (error) {
@@ -213,30 +227,28 @@ export const MemoryList: React.FC<MemoryListProps> = ({ initialMemories }) => {
       
       {renderFilters()}
       
-      {isLoading ? (
-        <div className="flex justify-center my-8">
-          <Spin tip="加载中..." />
-        </div>
-      ) : memories.length === 0 ? (
-        <Empty 
-          description="没有找到记忆" 
-          className="my-8"
-        />
-      ) : (
-        <List
-          grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 4 }}
-          dataSource={memories}
-          renderItem={memory => (
-            <List.Item>
-              <MemoryCard 
-                memory={memory} 
-                onDelete={handleDeleteMemory}
-                onImportanceChange={handleImportanceChange}
-              />
-            </List.Item>
-          )}
-        />
-      )}
+      <Spin spinning={isLoading} tip="加载中...">
+        {memories.length === 0 ? (
+          <Empty 
+            description="没有找到记忆" 
+            className="my-8"
+          />
+        ) : (
+          <List
+            grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 3, xxl: 4 }}
+            dataSource={memories}
+            renderItem={memory => (
+              <List.Item>
+                <MemoryCard 
+                  memory={memory} 
+                  onDelete={handleDeleteMemory}
+                  onImportanceChange={handleImportanceChange}
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Spin>
       
       {renderAddModal()}
     </div>

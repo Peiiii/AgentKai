@@ -6,6 +6,8 @@ import { EmbeddingProvider } from './embedding/EmbeddingProvider';
 import { ISearchProvider } from './embedding/ISearchProvider';
 import { StorageProvider } from '../storage/StorageProvider';
 
+export type UpdateMemoryInput = Required<Pick<Memory,"id">> & Partial<Omit<Memory,"id">>;
+
 export class MemorySystem {
     private storage: StorageProvider<Memory>;
     private logger: Logger;
@@ -203,7 +205,8 @@ export class MemorySystem {
     }
 
     // 更新记忆内容
-    async updateMemory(id: string, content: string, metadata?: Record<string, any>): Promise<Memory | null> {
+    async updateMemory(input: UpdateMemoryInput): Promise<Memory | null> {
+        const { id, content, metadata } = input;
         this.logger.debug(`更新记忆: ${id}`, { content });
         
         try {
@@ -215,7 +218,7 @@ export class MemorySystem {
             
             const updatedMemory: Memory = {
                 ...memory,
-                content,
+                content: content || memory.content,
                 metadata: metadata ? { ...memory.metadata, ...metadata } : memory.metadata
             };
             
@@ -223,7 +226,7 @@ export class MemorySystem {
             if (content !== memory.content && this.embeddingProvider) {
                 try {
                     this.logger.debug('为更新的记忆重新生成嵌入向量');
-                    updatedMemory.embedding = await this.embeddingProvider.getEmbedding(content);
+                    updatedMemory.embedding = await this.embeddingProvider.getEmbedding(content || memory.content);
                     
                     // 如果有搜索提供者，更新搜索索引
                     if (this.searchProvider && updatedMemory.embedding) {

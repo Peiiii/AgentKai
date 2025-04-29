@@ -1,6 +1,6 @@
+import { Memory } from '@agentkai/core';
 import { create } from 'zustand';
-import { Memory } from '../components/MemoryCard';
-import { MemoryStorage } from '../services/MemoryStorage';
+import { AgentAPI } from '../api/agent';
 
 interface MemoryState {
   memories: Memory[];
@@ -40,23 +40,8 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      const memoryStorage = MemoryStorage.getInstance();
-      await memoryStorage.initialize();
-      
-      // 根据过滤条件获取记忆
-      let memories: Memory[] = [];
-      const { selectedCategory, selectedTag, minImportance } = get();
-      
-      if (selectedCategory) {
-        memories = await memoryStorage.getMemoriesByCategory(selectedCategory);
-      } else if (selectedTag) {
-        memories = await memoryStorage.getMemoriesByTag(selectedTag);
-      } else if (minImportance > 0) {
-        memories = await memoryStorage.getMemoriesByImportance(minImportance);
-      } else {
-        memories = await memoryStorage.getAllMemories();
-      }
-      
+      const agentApi = AgentAPI.getInstance();
+      const memories = (await agentApi.getMemories()).slice();
       // 提取所有类别和标签
       const categories = Array.from(new Set(
         memories
@@ -66,7 +51,7 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
       
       const tags = Array.from(new Set(
         memories
-          .flatMap(m => m.tags || [])
+          .flatMap(m => m.metadata.tags || [])
           .filter(Boolean)
       ));
       
@@ -90,8 +75,8 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      const memoryStorage = MemoryStorage.getInstance();
-      await memoryStorage.saveMemory(memory);
+      const agentApi = AgentAPI.getInstance();
+      await agentApi.addMemory(memory);
       
       // 重新加载所有记忆以更新列表
       await get().loadMemories();
@@ -109,8 +94,11 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      const memoryStorage = MemoryStorage.getInstance();
-      await memoryStorage.updateMemory(id, updates);
+      const agentApi = AgentAPI.getInstance();
+      await agentApi.aiSystem.memory.updateMemory({
+        id,
+        ...updates
+      });
       
       // 重新加载所有记忆以更新列表
       await get().loadMemories();
@@ -128,8 +116,8 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      const memoryStorage = MemoryStorage.getInstance();
-      await memoryStorage.deleteMemory(id);
+      const agentApi = AgentAPI.getInstance();
+      await agentApi.aiSystem.memory.deleteMemory(id);
       
       // 从当前状态中移除记忆
       set(state => ({ 
@@ -148,8 +136,11 @@ export const useMemoryStore = create<MemoryState>((set, get) => ({
   // 设置记忆重要性
   setImportance: async (id, importance) => {
     try {
-      const memoryStorage = MemoryStorage.getInstance();
-      await memoryStorage.updateMemory(id, { importance });
+      const agentApi = AgentAPI.getInstance();
+      await agentApi.aiSystem.memory.updateMemory({
+        id,
+        importance
+      });
       
       // 更新状态中的记忆
       set(state => ({ 
