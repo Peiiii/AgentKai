@@ -186,10 +186,10 @@ const extractResultStatus = (result: string): {text: string, color: string} => {
 const CollapsibleToolCall = ({ toolInvocation }: { toolInvocation: ToolInvocation }) => {
   // 如果是已完成的工具调用(state为result)，则默认收起
   const isCompleted = toolInvocation.state === 'result' && 'result' in toolInvocation;
-  const [isExpanded, setIsExpanded] = useState(!isCompleted);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // 提取关键参数标签
-  const paramTags = isCompleted ? [] : extractKeyParams(toolInvocation.args);
+  const paramTags = extractKeyParams(toolInvocation.args);
   
   // 提取结果状态（如果已完成）
   const resultStatus = isCompleted ? extractResultStatus(toolInvocation.result) : null;
