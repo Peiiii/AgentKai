@@ -41,7 +41,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ memories, goals, colla
   return (
     <Sider 
       width={300} 
-      collapsible 
       collapsed={collapsed} 
       onCollapse={onCollapse}
       theme="light"

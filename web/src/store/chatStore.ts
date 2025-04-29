@@ -1,10 +1,10 @@
-import { Goal, Memory, MessagePart, PartsTrackerEventType, Tool } from '@agentkai/core';
+import { Goal, Memory, MessagePart, PartsTrackerEventType } from '@agentkai/core';
+import { omit } from 'lodash-es';
+import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AgentService } from '../services/agent/AgentService';
 import { Message } from '../types/message';
-import { nanoid } from 'nanoid';
-import { omit } from 'lodash-es';
 
 interface ChatState {
     messages: Message[];
@@ -29,7 +29,7 @@ interface ChatState {
     setGoals: (goals: Goal[]) => void;
 
     // 发送消息（带工具支持）
-    sendMessageWithTools: (content: string, tools: Tool[]) => Promise<void>;
+    sendMessageWithTools: (content: string) => Promise<void>;
 }
 
 export const createMessageFromAssistantPart = (part: MessagePart): Message => {
@@ -214,7 +214,7 @@ export const useChatStore = create<ChatState>()(
                 },
 
                 // 发送消息（带工具支持）
-                sendMessageWithTools: async (content: string, tools: Tool[]) => {
+                sendMessageWithTools: async (content: string) => {
                     if (!content.trim()) {
                         return;
                     }
