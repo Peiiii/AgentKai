@@ -20,7 +20,7 @@ interface ChatState {
     sendMessage: (content: string) => Promise<void>;
     loadMessages: () => Promise<void>;
     loadMessageHistory: () => Promise<void>;
-    clearMessages: () => void;
+    clearMessages: () => Promise<void>;
 
     // 记忆相关方法
     loadMemories: () => Promise<void>;
@@ -306,7 +306,28 @@ export const useChatStore = create<ChatState>()(
                 },
 
                 // 清空消息
-                clearMessages: () => set({ messages: [] }),
+                clearMessages: async () => {
+                    try {
+                        set({ isLoading: true });
+                        
+                        // 清空本地状态消息
+                        set({ messages: [] });
+                        
+                        // 清空AI系统的对话历史
+                        const api = await import('../api/agent').then((m) => m.AgentAPI.getInstance());
+                        await api.clearCurrentConversation();
+                        
+                        set({ isLoading: false });
+                        console.log('所有会话消息已清空');
+                    } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : '清空消息失败';
+                        console.error('清空消息失败:', errorMessage);
+                        set({ 
+                            isLoading: false,
+                            error: errorMessage
+                        });
+                    }
+                },
             };
         },
         {

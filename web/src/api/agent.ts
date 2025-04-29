@@ -267,6 +267,21 @@ export class AgentAPI {
     }
 
     /**
+     * 清空当前对话历史
+     */
+    public async clearCurrentConversation(): Promise<void> {
+        await this.ensureInitialized();
+        
+        try {
+            await this.aiSystem.clearCurrentConversation();
+            console.log('AISystem对话历史已清空');
+        } catch (error) {
+            console.error('清空AISystem对话历史失败:', error);
+            throw error;
+        }
+    }
+
+    /**
      * 确保AI系统已初始化
      */
     private async ensureInitialized(): Promise<void> {
