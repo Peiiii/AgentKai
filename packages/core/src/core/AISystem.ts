@@ -418,27 +418,40 @@ export class BaseAISystem {
         maxIterations?: number; // 新增：最大循环次数
     }): Promise<string> {
         // 循环控制逻辑
-        let currentInput = params.input;
+        const currentInput = params.input;
         let iterations = 0;
-        const maxIterations = params.maxIterations || 10; // 默认不循环，向后兼容
+        const maxIterations = params.maxIterations || 10; // 默认最多10次循环
         let fullResponse = '';
         
         // 记录处理开始时间
         const startTime = Date.now();
         
+        // 创建一个共享的 PartsTracker 实例，所有迭代都使用它
+        const sharedPartsTracker = new PartsTracker();
+        
+        // 注册 PartsTracker 的订阅
+        if (params.onPartsChange) {
+            sharedPartsTracker.subscribeParts().subscribe(params.onPartsChange);
+        }
+        if (params.onPartEvent) {
+            sharedPartsTracker.subscribeEvents().subscribe(params.onPartEvent);
+        }
+        
         try {
             while (iterations < maxIterations) {
                 this.logger.debug(`开始处理第 ${iterations + 1}/${maxIterations} 轮对话`, {
                     iteration: iterations + 1,
-                    input: currentInput.substring(0, 100) + (currentInput.length > 100 ? '...' : ''),
+                    input: iterations === 0 ? currentInput.substring(0, 100) + (currentInput.length > 100 ? '...' : '') : '(基于工具结果自动继续)',
                     timestamp: new Date().toISOString()
                 });
                 
-                // 处理单轮对话
+                // 处理单轮对话，传入共享的 PartsTracker
                 const result = await this.processSingleIteration({
                     ...params,
-                    input: currentInput,
-                    iterationIndex: iterations
+                    input: iterations === 0 ? currentInput : '', // 后续迭代不需要输入
+                    iterationIndex: iterations,
+                    continueFromToolResults: iterations > 0, // 标记是否是基于工具结果继续
+                    sharedPartsTracker // 传入共享的 PartsTracker
                 });
                 
                 // 累加响应
@@ -457,25 +470,23 @@ export class BaseAISystem {
                     break;
                 }
                 
-                // 准备下一轮输入
-                if (result.nextPrompt) {
-                    currentInput = result.nextPrompt;
-                    this.logger.debug('准备下一轮输入', {
-                        nextPromptLength: currentInput.length,
-                        nextPromptPreview: currentInput.substring(0, 50) + '...'
-                    });
-                } else {
-                    this.logger.warn('需要继续循环但未提供下一轮输入，使用默认提示');
-                    currentInput = this.buildDefaultNextPrompt(result.lastToolResult);
-                }
-                
+                // 后续迭代不需要准备下一轮输入，直接基于对话历史继续
                 iterations++;
             }
             
             // 如果达到最大循环次数但仍需继续
             if (iterations >= maxIterations && iterations > 0) {
                 this.logger.warn(`达到最大循环次数 ${maxIterations}，强制结束对话`);
+                
+                // 可以选择添加一条系统消息说明达到了最大迭代次数
+                this.conversation.addMessage({
+                    role: 'system',
+                    content: `注意：该对话已达到最大迭代次数(${maxIterations})限制，可能未完全处理完所有工具调用结果。`
+                });
             }
+            
+            // 完成所有处理后，调用 complete
+            sharedPartsTracker.complete();
             
             return fullResponse;
         } catch (error) {
@@ -503,26 +514,40 @@ export class BaseAISystem {
         onPartsChange?: (parts: MessagePart[]) => void;
         onPartEvent?: (event: PartsTrackerEvent) => void;
         iterationIndex: number;
+        continueFromToolResults?: boolean; // 标记是否从工具结果继续
+        sharedPartsTracker?: PartsTracker; // 新增：共享的 PartsTracker
     }): Promise<{
         response: string;
         requiresFollowUp: boolean;
         nextPrompt?: string;
         lastToolResult?: ToolResult<string, Record<string, any>, any>;
     }> {
-        const { input, tools, onChunk, onToolCall, onToolResult, onPartsChange, onPartEvent, iterationIndex } = params;
+        const { 
+            input, 
+            tools, 
+            onChunk, 
+            onToolCall, 
+            onToolResult, 
+            onPartsChange, 
+            onPartEvent, 
+            iterationIndex, 
+            continueFromToolResults,
+            sharedPartsTracker 
+        } = params;
         const startTime = Date.now();
         let requiresFollowUp = false;
         let nextPrompt: string | undefined;
         let lastToolResult: ToolResult<string, Record<string, any>, any> | undefined;
         
-        console.log('[AISystem] [processSingleIteration] [input]:', input, 'tools:', tools, 'iteration:', iterationIndex);
+        console.log('[AISystem] [processSingleIteration] [input]:', input, 'tools:', tools, 'iteration:', iterationIndex, 'continueFromToolResults:', continueFromToolResults);
         
         try {
             // 记录输入和工具信息
             this.logger.debug('开始处理带工具的流式输入', {
                 timestamp: new Date().toISOString(),
                 iteration: iterationIndex,
-                input,
+                input: input || '(基于工具结果自动继续)',
+                continueFromToolResults: !!continueFromToolResults,
                 availableTools: tools.map((t) => ({
                     name: t.name,
                     description: t.description,
@@ -531,26 +556,28 @@ export class BaseAISystem {
 
             const messages = this.conversation.getHistory();
             
-            // 对于后续迭代，直接添加一条系统消息让AI继续处理
-            if (iterationIndex > 0) {
+            // 对于后续迭代，添加一条系统消息引导AI处理
+            if (continueFromToolResults) {
                 messages.push({
                     role: 'system',
-                    content: '请继续处理上述工具调用的结果，必要时使用工具完成任务。'
+                    content: '请根据上述工具调用的结果继续处理，可以使用更多工具或者给出最终回答。'
                 });
             }
 
             // 重置工具调用处理器
             this.toolCallProcessor.reset();
             
-            // 初始化一个新的 PartsTracker
-            const partsTracker = new PartsTracker();
+            // 使用共享的 PartsTracker 或创建新的
+            const partsTracker = sharedPartsTracker || new PartsTracker();
             
-            // 注册 PartsTracker 的订阅
-            if (onPartsChange) {
-                partsTracker.subscribeParts().subscribe(onPartsChange);
-            }
-            if (onPartEvent) {
-                partsTracker.subscribeEvents().subscribe(onPartEvent);
+            // 只有在没有使用共享 PartsTracker 的情况下才注册新的订阅
+            if (!sharedPartsTracker) {
+                if (onPartsChange) {
+                    partsTracker.subscribeParts().subscribe(onPartsChange);
+                }
+                if (onPartEvent) {
+                    partsTracker.subscribeEvents().subscribe(onPartEvent);
+                }
             }
             
             // 创建 onAddChunk 回调函数，将其传递给模型
@@ -559,8 +586,28 @@ export class BaseAISystem {
                 partsTracker.addChunk(chunk);
             };
 
+            // 构建请求消息数组
+            let requestMessages = messages;
+            if (input && !continueFromToolResults) {
+                // 首轮迭代: 添加用户输入
+                requestMessages = [...messages, { role: 'user', content: input }];
+                
+                // 同时将用户输入添加到对话历史中
+                if (iterationIndex === 0) {
+                    this.conversation.addMessage({
+                        role: 'user',
+                        content: input
+                    });
+                    
+                    this.logger.debug('添加用户消息到对话历史', {
+                        contentLength: input.length
+                    });
+                }
+            }
+            
+            // 生成AI响应
             const response = await this.model.generateStreamWithTools({
-                messages: [...messages, { role: 'user', content: input }],
+                messages: requestMessages,
                 tools,
                 onPartsChange,
                 onPartEvent,
@@ -607,7 +654,6 @@ export class BaseAISystem {
                     // 检查是否需要继续对话
                     if (this.shouldContinueProcessing(toolResult)) {
                         requiresFollowUp = true;
-                        nextPrompt = this.buildNextPrompt(toolResult);
                     }
                 } else if (chunk.type === 'error') {
                     this.logger.error('流式处理错误', {
@@ -617,8 +663,10 @@ export class BaseAISystem {
                 }
             }
             
-            // 完成 PartsTracker 处理
-            partsTracker.complete();
+            // 只有在没有使用共享 PartsTracker 的情况下才调用 complete
+            if (!sharedPartsTracker) {
+                partsTracker.complete();
+            }
 
             // 记录完整响应和处理统计
             const totalDuration = Date.now() - startTime;
@@ -633,6 +681,60 @@ export class BaseAISystem {
                     averageChunkTime: chunkCount > 0 ? totalDuration / chunkCount : 0,
                     timestamp: new Date().toISOString(),
                 },
+            });
+
+            // 将当前迭代的内容存储到对话历史中
+            // 收集当前迭代生成的消息部分
+            let assistantMessage = '';
+            const toolCalls: any[] = [];
+            const toolResults: Map<string, any> = new Map();
+            
+            // 处理生成的部分
+            partsTracker.getParts().forEach(part => {
+                if (part.type === 'text') {
+                    assistantMessage += part.text;
+                } else if (part.type === 'tool_call') {
+                    toolCalls.push({
+                        id: part.toolCall.id,
+                        type: 'function',
+                        function: {
+                            name: part.toolCall.function.name,
+                            arguments: part.toolCall.function.arguments
+                        }
+                    });
+                } else if (part.type === 'tool_result') {
+                    toolResults.set(part.toolResult.toolCallId, part.toolResult.result);
+                }
+            });
+            
+            // 添加助手消息（文本或工具调用）
+            if (assistantMessage || toolCalls.length > 0) {
+                this.conversation.addMessage({
+                    role: 'assistant',
+                    content: assistantMessage,
+                    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {})
+                });
+                
+                this.logger.debug('添加助手消息到对话历史', {
+                    hasText: !!assistantMessage,
+                    textLength: assistantMessage.length,
+                    toolCallsCount: toolCalls.length
+                });
+            }
+            
+            // 添加工具结果消息
+            toolResults.forEach((result, toolCallId) => {
+                const content = typeof result === 'string' ? result : JSON.stringify(result);
+                this.conversation.addMessage({
+                    role: 'tool',
+                    content,
+                    tool_call_id: toolCallId
+                });
+                
+                this.logger.debug('添加工具结果消息到对话历史', {
+                    toolCallId,
+                    contentLength: content.length
+                });
             });
 
             return {
@@ -722,11 +824,13 @@ export class BaseAISystem {
      * @private
      */
     private shouldContinueProcessing(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         toolResult: ToolResult<string, Record<string, any>, any>
     ): boolean {
-        // 目前都需要继续处理
-       return true;
+        // 暂时直接返回true，所有工具调用都继续处理
+        this.logger.debug('所有工具调用都继续处理', {
+            toolName: toolResult.toolName
+        });
+        return true;
     }
     
     /**

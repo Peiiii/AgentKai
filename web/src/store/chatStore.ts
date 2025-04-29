@@ -36,7 +36,7 @@ export const createMessageFromAssistantPart = (part: MessagePart): Message => {
     if (part.type === 'tool_result') {
         return {
             id: nanoid(),
-            messageGroupId: part.messageId,
+            messageGroupId: part.messageGroupId,
             content: part.toolResult.result,
             role: 'tool',
             tool_call_id: part.toolResult.toolCallId,
@@ -47,7 +47,7 @@ export const createMessageFromAssistantPart = (part: MessagePart): Message => {
     } else if (part.type === 'tool_call') {
         return {
             id: nanoid(),
-            messageGroupId: part.messageId,
+            messageGroupId: part.messageGroupId,
             content: "",
             role: 'assistant',
             tool_calls: [part.toolCall],
@@ -58,7 +58,7 @@ export const createMessageFromAssistantPart = (part: MessagePart): Message => {
     }
     return {
         id: nanoid(),
-        messageGroupId: part.messageId,
+        messageGroupId: part.messageGroupId,
         content: part.type === 'text' ? part.text : '',
         role: 'assistant',
         type: 'text',
@@ -267,7 +267,7 @@ export const useChatStore = create<ChatState>()(
                                             const lastMessage = state.messages[state.messages.length - 1];
                                             if (
                                                 lastMessage &&
-                                                lastMessage.messageGroupId === event.part.messageId
+                                                lastMessage.messageGroupId === event.part.messageGroupId
                                             ) {
                                                 // 使用 omit 避免替换 id
                                                 return {

@@ -8,9 +8,9 @@ import { Logger } from '../../utils/logger';
  * 消息部分类型
  */
 export type MessagePart =
-    | { type: 'text'; text: string; isComplete?: boolean; messageId: string }
-    | { type: 'tool_call'; toolCall: ToolCall; isComplete?: boolean; messageId: string }
-    | { type: 'tool_result'; toolResult: ToolResult<string, any, any>; isComplete?: boolean; messageId: string };
+    | { type: 'text'; text: string; isComplete?: boolean; messageGroupId: string }
+    | { type: 'tool_call'; toolCall: ToolCall; isComplete?: boolean; messageGroupId: string }
+    | { type: 'tool_result'; toolResult: ToolResult<string, any, any>; isComplete?: boolean; messageGroupId: string };
 
 /**
  * Chunk类型
@@ -44,7 +44,7 @@ export class PartsTracker {
     private partsSubject: BehaviorSubject<MessagePart[]>;
     private eventSubject: Subject<PartsTrackerEvent>;
 
-    constructor(private readonly messageId: string = nanoid()) {
+    constructor(private readonly messageGroupId: string = nanoid()) {
         this.logger = new Logger('PartsTracker');
         this.partsSubject = new BehaviorSubject<MessagePart[]>([]);
         this.eventSubject = new Subject<PartsTrackerEvent>();
@@ -170,11 +170,11 @@ export class PartsTracker {
     private createPart(chunk: MessageChunk): MessagePart {
         switch (chunk.type) {
             case 'text':
-                return { type: 'text', text: chunk.text, isComplete: false, messageId: this.messageId };
+                return { type: 'text', text: chunk.text, isComplete: false, messageGroupId: this.messageGroupId };
             case 'tool_call':
-                return { type: 'tool_call', toolCall: chunk.toolCall, isComplete: false, messageId: this.messageId };
+                return { type: 'tool_call', toolCall: chunk.toolCall, isComplete: false, messageGroupId: this.messageGroupId };
             case 'tool_result':
-                return { type: 'tool_result', toolResult: chunk.toolResult, messageId: this.messageId };
+                return { type: 'tool_result', toolResult: chunk.toolResult, messageGroupId: this.messageGroupId };
         }
     }
 
@@ -192,7 +192,7 @@ export class PartsTracker {
                         type: 'text',
                         text: lastPart.text + chunk.text,
                         isComplete: false,
-                        messageId: lastPart.messageId,
+                        messageGroupId: lastPart.messageGroupId,
                     };
                 }
                 break;
@@ -212,7 +212,7 @@ export class PartsTracker {
                             },
                         },
                         isComplete: false,
-                        messageId: lastPart.messageId,
+                        messageGroupId: lastPart.messageGroupId,
                     };
                 }
                 break;
